@@ -41,15 +41,25 @@ py -m yijing_agent -q "近期换一份工作是否合适"
 
 ## 配置大模型解读（OpenRouter）
 
-不配置也能用（输出卦象、原文、结论，只是没有白话解读）。配置方法二选一：
+不配置也能用（输出卦象、原文、结论，只是没有白话解读）。
 
-1. 复制 `config.example.json` 为 `config.json`，填入你的 OpenRouter API Key
-   （`config.json` 已在 .gitignore 中，不会被提交）；
-2. 或设置环境变量：`set OPENROUTER_API_KEY=sk-or-v1-...`（PowerShell 用
-   `$env:OPENROUTER_API_KEY="sk-or-v1-..."`）。
+**首次运行会自动生成 `config.json`**（exe 版在 exe 同目录，源码版在项目
+根目录），用记事本打开，填两个字段即可：
 
-默认模型为 `anthropic/claude-sonnet-5`，可在 `config.json` 的 `model`
-字段换成 OpenRouter 上的任意模型 ID。
+```json
+{
+  "api_key": "在这里填入你的 OpenRouter API Key（形如 sk-or-v1-...）",
+  "model": "anthropic/claude-sonnet-5",
+  "base_url": "https://openrouter.ai/api/v1"
+}
+```
+
+- `api_key`：在 [openrouter.ai/keys](https://openrouter.ai/keys) 创建；
+- `model`：OpenRouter 上的任意模型 ID，默认 `anthropic/claude-sonnet-5`。
+
+也可用环境变量代替：`OPENROUTER_API_KEY`、`OPENROUTER_MODEL`、
+`OPENROUTER_BASE_URL`（环境变量优先于 config.json）。
+`config.json` 已在 .gitignore 中，不会被提交。
 
 ## 用法
 

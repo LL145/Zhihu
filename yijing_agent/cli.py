@@ -84,10 +84,17 @@ def main(argv=None):
     print()
 
     cfg = config.load()
-    if args.no_llm or not cfg["api_key"]:
-        if not args.no_llm:
-            print("（未配置 OPENROUTER_API_KEY，以无解读模式输出。"
-                  "配置方法见 README.md。）")
+    if args.no_llm:
+        pass
+    elif not cfg["api_key"]:
+        path, created = config.ensure_file()
+        if created:
+            print(f"（已生成配置文件：{path}\n"
+                  f"  用记事本打开它，把 api_key 换成你的 OpenRouter API Key，"
+                  f"model 可换成任意 OpenRouter 模型 ID，保存后重新运行即可获得大模型解读。）")
+        else:
+            print(f"（尚未填写 OpenRouter API Key：请编辑 {path} 的 api_key 字段，"
+                  f"或设置环境变量 OPENROUTER_API_KEY。当前以无解读模式输出。）")
     else:
         try:
             result, attempts = interpret(cfg, kb, question, cast, sel, vd)
