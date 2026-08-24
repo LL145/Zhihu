@@ -43,6 +43,7 @@ def main(argv=None):
     p.add_argument("--no-llm", action="store_true", help="不调用大模型，仅输出原文与结论")
     args = p.parse_args(argv)
 
+    interactive = args.question is None
     question = args.question
     if not question:
         try:
@@ -102,4 +103,9 @@ def main(argv=None):
     print(report.render_repro(cast))
     print()
     print("※ " + report.DISCLAIMER)
+    if interactive and getattr(sys, "frozen", False):  # 双击运行 exe 时不闪退
+        try:
+            input("\n（回车退出）")
+        except (EOFError, KeyboardInterrupt):
+            pass
     return 0

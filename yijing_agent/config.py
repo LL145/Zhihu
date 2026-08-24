@@ -8,16 +8,23 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 
-DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
+DEFAULT_MODEL = "anthropic/claude-sonnet-5"  # OpenRouter 模型 ID，config.json 可覆盖
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+
+
+def _candidates():
+    yield Path.cwd() / "config.json"
+    if getattr(sys, "frozen", False):  # PyInstaller 打包后：exe 所在目录
+        yield Path(sys.executable).resolve().parent / "config.json"
+    yield Path(__file__).resolve().parent.parent / "config.json"
 
 
 def load() -> dict:
     cfg = {"api_key": "", "model": DEFAULT_MODEL, "base_url": DEFAULT_BASE_URL}
-    for candidate in (Path.cwd() / "config.json",
-                      Path(__file__).resolve().parent.parent / "config.json"):
+    for candidate in _candidates():
         if candidate.exists():
             cfg.update(json.loads(candidate.read_text("utf-8")))
             break

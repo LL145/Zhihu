@@ -10,6 +10,22 @@
 
 ## 快速开始（Windows）
 
+### 方式一：直接下载可执行文件（无需安装 Python）
+
+每次推送到 main 分支，GitHub Actions 会自动打包 Windows 单文件版：
+仓库 **Actions** 页 → 最新一次 `build` 运行 → Artifacts → 下载
+`yijing-agent-windows`，解压得到 `yijing-agent.exe`。
+打了 `v*` 标签（如 `v0.1.0`）则会自动发布到 **Releases** 页，从那里下载更方便。
+
+```powershell
+.\yijing-agent.exe -q "近期换一份工作是否合适"
+```
+
+要启用大模型解读，把 `config.json`（见下文）放在 exe 同一目录即可。
+双击 exe 也可运行（交互输入问题，结束按回车退出）。
+
+### 方式二：源码运行
+
 需要 Python 3.9+（[python.org](https://www.python.org/downloads/) 安装时勾选
 "Add python.exe to PATH"）。在项目目录打开终端（PowerShell 或 cmd）：
 
@@ -32,7 +48,7 @@ py -m yijing_agent -q "近期换一份工作是否合适"
 2. 或设置环境变量：`set OPENROUTER_API_KEY=sk-or-v1-...`（PowerShell 用
    `$env:OPENROUTER_API_KEY="sk-or-v1-..."`）。
 
-默认模型为 `anthropic/claude-sonnet-4.5`，可在 `config.json` 的 `model`
+默认模型为 `anthropic/claude-sonnet-5`，可在 `config.json` 的 `model`
 字段换成 OpenRouter 上的任意模型 ID。
 
 ## 用法
