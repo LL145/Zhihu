@@ -18,15 +18,22 @@
 
 每次推送到 main 分支，GitHub Actions 会自动打包 Windows 单文件版：
 仓库 **Actions** 页 → 最新一次 `build` 运行 → Artifacts → 下载
-`yijing-agent-windows`，解压得到 `yijing-agent.exe`。
+`yijing-agent-windows`，解压得到两个文件：
+
+- **`yijing-agent-gui.exe`（推荐）**：图形界面版。双击打开窗口，输入
+  所问之事点「起卦 / 排盘」；命理类问题（命格/时运）填上生辰即出紫微
+  命盘；点右上「设置」填入 OpenRouter API Key 即可启用大模型解读与
+  追问（保存在 exe 旁的 config.json）。
+- `yijing-agent.exe`：命令行版，用法见下文。
+
 打了 `v*` 标签（如 `v0.1.0`）则会自动发布到 **Releases** 页，从那里下载更方便。
 
 ```powershell
 .\yijing-agent.exe -q "近期换一份工作是否合适"
 ```
 
-要启用大模型解读，把 `config.json`（见下文）放在 exe 同一目录即可。
-双击 exe 也可运行（交互输入问题，结束按回车退出）。
+要启用大模型解读，把 `config.json`（见下文）放在 exe 同一目录即可
+（界面版直接在「设置」里填）。命令行版双击也可运行（交互输入问题）。
 
 ### 方式二：源码运行
 
@@ -39,6 +46,9 @@ py -m venv .venv
 pip install -r requirements.txt
 
 py -m yijing_agent -q "近期换一份工作是否合适"
+
+# 图形界面版
+py -m yijing_agent.gui
 ```
 
 若终端中文显示异常，先执行 `chcp 65001` 切换到 UTF-8。
@@ -113,6 +123,8 @@ yijing_agent/
   validator.py   引文校验器：逐字比对，防幻觉闸门（解读与追问回答同过此关）
   redline.py     红线拦截：医疗/投资/法律/寿夭类问题拒答
   lunar.py       公历→农历（cnlunar），流派约定显式标注
+  service.py     双引擎流水线门面（路由/会话/解读/追问，GUI 复用）
+  gui.py         图形界面（Tkinter 标准库，打包为 yijing-agent-gui.exe）
   ziwei/         紫微命引擎（v2）：
     chart.py       排盘（安星诀逐条代码化，流派约定显式选定）
     brightness.py  《全书·卷二》庙陷表逐格转录
@@ -128,7 +140,7 @@ tools/
   import_wikisource_wangbi.py 从维基文库《周易正義》导入王弼注（经文锚定对齐）
   import_wikisource_ziwei.py  从维基文库《紫微斗數全書》导入紫微库
   gen_ziwei_fixtures.py       以 py-iztro 生成排盘命例回归集（开发机用）
-tests/           142 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
+tests/           150 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
                  注疏挂载、引文校验、LLM 重试与追问；紫微排盘 21 命例
                  回归（对照 iztro）、安星诀明文例、紫微库完整性、选文与结论
 ```

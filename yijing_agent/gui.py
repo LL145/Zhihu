@@ -1,0 +1,322 @@
+"""图形界面（Tkinter，Python 标准库，无额外依赖）。
+
+    python -m yijing_agent.gui
+打包版为 yijing-agent-gui.exe（PyInstaller --windowed）。
+
+界面只做输入输出与线程调度；起卦/排盘/选文/结论走 service 门面，
+大模型解读与追问在工作线程执行，结果经队列回主线程刷新。
+"""
+
+import json
+import queue
+import re
+import threading
+import tkinter as tk
+from datetime import datetime
+from tkinter import messagebox, scrolledtext, ttk
+
+from . import config, service
+from .llm import InterpreterError
+from .trigrams import ZHI
+
+_TITLE = "算命 Agent —— 有典可依、可复现（卦断事，盘论人）"
+_SHICHEN_CHOICES = ["未知"] + [z + "时" for z in ZHI]
+
+
+def _parse_birth(date_s, shichen, gender):
+    """→ (datetime, gender) 或 None（未填全）。格式错抛 ValueError。"""
+    date_s = date_s.strip()
+    if not date_s and shichen == "未知" and not gender:
+        return None
+    if not date_s or shichen == "未知" or not gender:
+        raise ValueError("紫微排盘需出生日期、时辰、性别三项齐全；"
+                         "时辰未知则无法排盘（可全部留空，改用易经事引擎）")
+    m = re.fullmatch(r"(\d{4})[-./年 ](\d{1,2})[-./月 ](\d{1,2})日?", date_s)
+    if not m:
+        raise ValueError(f"出生日期格式应为 YYYY-MM-DD：{date_s}")
+    hour = ZHI.index(shichen[0]) * 2
+    return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)), hour), gender
+
+
+class App(ttk.Frame):
+    def __init__(self, root):
+        super().__init__(root, padding=8)
+        self.root = root
+        root.title(_TITLE)
+        root.geometry("980x720")
+        self.session = None
+        self._q = queue.Queue()
+        self._busy = False
+        self._build()
+        self.after(100, self._poll)
+
+    # ── 界面搭建 ────────────────────────────────────────────────────
+
+    def _build(self):
+        self.pack(fill="both", expand=True)
+
+        row1 = ttk.Frame(self)
+        row1.pack(fill="x")
+        ttk.Label(row1, text="所问之事：").pack(side="left")
+        self.question = ttk.Entry(row1)
+        self.question.pack(side="left", fill="x", expand=True, padx=4)
+        self.question.bind("<Return>", lambda e: self.run())
+        self.method = ttk.Combobox(row1, values=["时间起卦", "铜钱法"],
+                                   width=8, state="readonly")
+        self.method.current(0)
+        self.method.pack(side="left", padx=4)
+        self.run_btn = ttk.Button(row1, text="起卦 / 排盘", command=self.run)
+        self.run_btn.pack(side="left")
+
+        row2 = ttk.Frame(self)
+        row2.pack(fill="x", pady=(6, 0))
+        ttk.Label(row2, text="生辰（命格/时运类问题用，可留空）　出生日期：").pack(side="left")
+        self.birth = ttk.Entry(row2, width=12)
+        self.birth.pack(side="left")
+        ttk.Label(row2, text="　时辰：").pack(side="left")
+        self.shichen = ttk.Combobox(row2, values=_SHICHEN_CHOICES, width=6,
+                                    state="readonly")
+        self.shichen.current(0)
+        self.shichen.pack(side="left")
+        ttk.Label(row2, text="　性别：").pack(side="left")
+        self.gender = ttk.Combobox(row2, values=["", "男", "女"], width=4,
+                                   state="readonly")
+        self.gender.current(0)
+        self.gender.pack(side="left")
+        ttk.Button(row2, text="设置（API Key）…",
+                   command=self.open_settings).pack(side="right")
+
+        self.out = scrolledtext.ScrolledText(
+            self, wrap="none", state="disabled",
+            font=("SimSun", 12), height=28)
+        self.out.pack(fill="both", expand=True, pady=6)
+        xbar = ttk.Scrollbar(self, orient="horizontal", command=self.out.xview)
+        self.out.configure(xscrollcommand=xbar.set)
+        xbar.pack(fill="x")
+
+        row3 = ttk.Frame(self)
+        row3.pack(fill="x", pady=(6, 0))
+        ttk.Label(row3, text="追问：").pack(side="left")
+        self.fu_entry = ttk.Entry(row3, state="disabled")
+        self.fu_entry.pack(side="left", fill="x", expand=True, padx=4)
+        self.fu_entry.bind("<Return>", lambda e: self.ask_followup())
+        self.fu_btn = ttk.Button(row3, text="追问", command=self.ask_followup,
+                                 state="disabled")
+        self.fu_btn.pack(side="left")
+
+        self.status = ttk.Label(self, text="※ " + service.DISCLAIMER,
+                                foreground="#666666")
+        self.status.pack(fill="x", pady=(4, 0))
+
+    # ── 输出辅助 ────────────────────────────────────────────────────
+
+    def _clear(self):
+        self.out.configure(state="normal")
+        self.out.delete("1.0", "end")
+        self.out.configure(state="disabled")
+
+    def _append(self, text):
+        self.out.configure(state="normal")
+        self.out.insert("end", text + "\n")
+        self.out.see("end")
+        self.out.configure(state="disabled")
+
+    def _set_status(self, text):
+        self.status.configure(text=text)
+
+    def _set_busy(self, busy):
+        self._busy = busy
+        self.run_btn.configure(state="disabled" if busy else "normal")
+
+    def _enable_followup(self, on):
+        state = "normal" if on else "disabled"
+        self.fu_entry.configure(state=state)
+        self.fu_btn.configure(state=state)
+
+    # ── 主流程 ──────────────────────────────────────────────────────
+
+    def run(self):
+        if self._busy:
+            return
+        question = self.question.get().strip()
+        if not question:
+            messagebox.showinfo(_TITLE, "请先输入所问之事。")
+            return
+        try:
+            birth = _parse_birth(self.birth.get(), self.shichen.get(),
+                                 self.gender.get())
+        except ValueError as e:
+            messagebox.showwarning(_TITLE, str(e))
+            return
+        method = "time" if self.method.get() == "时间起卦" else "coin"
+        self._clear()
+        self._enable_followup(False)
+        self.session = None
+        try:
+            session = service.prepare(
+                question, method=method,
+                birth_dt=birth[0] if birth else None,
+                gender=birth[1] if birth else None)
+        except service.RefusalError as e:
+            self._append(str(e))
+            return
+        self.session = session
+        self._append(session.body_text())
+        self._append("")
+
+        cfg = config.load()
+        if not cfg["api_key"]:
+            self._append("（未配置 OpenRouter API Key：点右上「设置」填入后可获得"
+                         "大模型解读与追问。当前为仅原文与结论的输出。）")
+            self._finish_output()
+            return
+        self._set_busy(True)
+        self._set_status(f"大模型解读生成中（{cfg['model']}，引文将逐字校验）……")
+        threading.Thread(target=self._interpret_worker, args=(session, cfg),
+                         daemon=True).start()
+
+    def _interpret_worker(self, session, cfg):
+        try:
+            text, attempts = session.interpret(cfg)
+            self._q.put(("interp_ok", session, text, attempts, cfg["model"]))
+        except InterpreterError as e:
+            detail = "\n".join(f"  - {err}" for err in e.errors)
+            self._q.put(("interp_err", session,
+                         f"〔解读不可用〕{e}\n{detail}".rstrip()))
+        except Exception as e:                    # 网络等异常不砸界面
+            self._q.put(("interp_err", session, f"〔解读不可用〕{e}"))
+
+    def _finish_output(self):
+        if self.session is not None:
+            self._append("")
+            self._append(self.session.repro_text())
+            self._append("")
+            self._append("※ " + service.DISCLAIMER)
+
+    # ── 追问 ────────────────────────────────────────────────────────
+
+    def ask_followup(self):
+        if self._busy or self.session is None:
+            return
+        ask = self.fu_entry.get().strip()
+        if not ask:
+            return
+        cfg = config.load()
+        self.fu_entry.delete(0, "end")
+        self._append(f"追问：{ask}")
+        self._set_busy(True)
+        self._enable_followup(False)
+        self._set_status("追问回答生成中（引文将逐字校验）……")
+        threading.Thread(target=self._followup_worker,
+                         args=(self.session, cfg, ask), daemon=True).start()
+
+    def _followup_worker(self, session, cfg, ask):
+        try:
+            text = session.followup(cfg, ask)
+            self._q.put(("fu_ok", session, text))
+        except service.RefusalError as e:
+            self._q.put(("fu_ok", session, str(e)))
+        except InterpreterError as e:
+            detail = "\n".join(f"  - {err}" for err in e.errors)
+            self._q.put(("fu_err", session,
+                         f"〔追问回答不可用〕{e}\n{detail}".rstrip()))
+        except Exception as e:
+            self._q.put(("fu_err", session, f"〔追问回答不可用〕{e}"))
+
+    # ── 线程结果回收 ────────────────────────────────────────────────
+
+    def _poll(self):
+        try:
+            while True:
+                msg = self._q.get_nowait()
+                kind, session = msg[0], msg[1]
+                if session is not self.session:   # 已开新一卦，丢弃旧结果
+                    continue
+                if kind == "interp_ok":
+                    _, _, text, attempts, model = msg
+                    self._append(text)
+                    self._append(f"（模型：{model}；第 {attempts} 次生成通过逐字校验）")
+                    self._finish_output()
+                    self._enable_followup(True)
+                elif kind == "interp_err":
+                    self._append(msg[2])
+                    self._append("已降级为仅原文与结论的输出。")
+                    self._finish_output()
+                elif kind == "fu_ok":
+                    self._append(msg[2])
+                    self._append("")
+                    self._enable_followup(True)
+                elif kind == "fu_err":
+                    self._append(msg[2])
+                    self._enable_followup(True)
+                self._set_busy(False)
+                self._set_status("※ " + service.DISCLAIMER)
+        except queue.Empty:
+            pass
+        self.after(100, self._poll)
+
+    # ── 设置对话框 ──────────────────────────────────────────────────
+
+    def open_settings(self):
+        path = config.default_path()
+        current = dict(config.TEMPLATE)
+        try:
+            for cand in config._candidates():
+                if cand.exists():
+                    path = cand
+                    current.update(json.loads(cand.read_text("utf-8")))
+                    break
+        except (OSError, json.JSONDecodeError):
+            pass
+
+        win = tk.Toplevel(self.root)
+        win.title("设置：OpenRouter")
+        win.transient(self.root)
+        win.grab_set()
+        frm = ttk.Frame(win, padding=10)
+        frm.pack(fill="both", expand=True)
+        ttk.Label(frm, text="API Key（openrouter.ai/keys 创建，形如 sk-or-v1-…）：")\
+            .grid(row=0, column=0, sticky="w")
+        key_e = ttk.Entry(frm, width=58)
+        key_e.insert(0, current.get("api_key", ""))
+        key_e.grid(row=1, column=0, sticky="we", pady=(0, 6))
+        ttk.Label(frm, text="模型 ID（OpenRouter 上任意模型）：")\
+            .grid(row=2, column=0, sticky="w")
+        model_e = ttk.Entry(frm, width=58)
+        model_e.insert(0, current.get("model", config.DEFAULT_MODEL))
+        model_e.grid(row=3, column=0, sticky="we", pady=(0, 6))
+        ttk.Label(frm, text=f"保存位置：{path}", foreground="#666666")\
+            .grid(row=4, column=0, sticky="w")
+
+        def save():
+            data = {"api_key": key_e.get().strip(),
+                    "model": model_e.get().strip() or config.DEFAULT_MODEL,
+                    "base_url": current.get("base_url", config.DEFAULT_BASE_URL)}
+            try:
+                path.write_text(
+                    json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                    "utf-8")
+            except OSError as e:
+                messagebox.showerror(_TITLE, f"保存失败：{e}", parent=win)
+                return
+            win.destroy()
+
+        btns = ttk.Frame(frm)
+        btns.grid(row=5, column=0, sticky="e", pady=(8, 0))
+        ttk.Button(btns, text="保存", command=save).pack(side="right", padx=4)
+        ttk.Button(btns, text="取消", command=win.destroy).pack(side="right")
+
+
+def main():
+    root = tk.Tk()
+    try:
+        root.tk.call("tk", "scaling", 1.3)
+    except tk.TclError:
+        pass
+    App(root)
+    root.mainloop()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
