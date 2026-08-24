@@ -249,7 +249,7 @@ def main(argv=None):
 
     ben_id = kb.id_of(cast.ben_binary)
     zhi_id = kb.id_of(cast.zhi_binary)
-    sel = selection.select(kb, cast.method, ben_id, zhi_id, cast.moving)
+    sel = selection.select(kb, cast.method, ben_id, zhi_id, cast.moving, tp)
     primary = sel.primary
     vd = verdict.decide(primary.cite_id, kb.citation(primary.cite_id)["text"])
 

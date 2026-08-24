@@ -1,13 +1,15 @@
 """断卦规则引擎：依占法规则确定应读的经文（确定性代码，杜绝挑拣）。
 
 - 铜钱法（可有 0-6 个动爻）：依朱熹《易学启蒙》占法（DESIGN.md 附录A）。
-- 梅花易数（恒为一个动爻）：依《梅花易数》体用之说——本卦卦辞为体、
-  动爻爻辞为断、之卦卦辞为势；以动爻爻辞为主断。
+- 梅花易数（恒为一个动爻）：依《梅花易数》体用之说——动爻所在之卦为用、
+  不动之卦为体；动爻爻辞为主断，本卦、之卦卦辞为参，体用两卦取象
+  （《说卦传》广象）入解读。
 """
 
 from dataclasses import dataclass, field
 
 from .knowledge import KnowledgeBase
+from .trigrams import PINYIN
 
 
 @dataclass
@@ -49,14 +51,63 @@ def _extra(kb, hid, role, primary):
     )
 
 
-def select_meihua(kb: KnowledgeBase, ben_id: int, zhi_id: int, moving_pos: int) -> Selection:
+def tiyong(kb: KnowledgeBase, ben_id: int, moving_pos: int):
+    """体用两卦（《梅花易数》：动爻所在之卦为用，不动之卦为体）。
+
+    返回 (体卦名, 用卦名)。动爻在下卦（1-3）则下卦为用、上卦为体。
+    """
+    lower, upper = kb.hexagram(ben_id)["trigrams"]
+    return (upper, lower) if moving_pos <= 3 else (lower, upper)
+
+
+def _shuogua_readings(kb, ti, yong):
+    """体用两卦之广象（说卦第十一章）；性情章附于体卦下。缺库则不附。"""
+    readings = []
+    for name, role_prefix in ((ti, "体卦"), (yong, "用卦")):
+        cid = f"shuogua:11:{PINYIN[name]}"
+        if not kb.has(cid):
+            return []
+        ctx = ["shuogua:7"] if role_prefix == "体卦" and kb.has("shuogua:7") else []
+        readings.append(Reading(
+            cite_id=cid, role=f"{role_prefix}{name}取象（说卦·广象，入解读）",
+            primary=False, context_ids=ctx))
+    return readings
+
+
+#: 问事类别 → 《梅花易数》十八占之占章（梅花法限用；无把握的类别不映射）
+TOPIC_ZHAN = {
+    "career": ("qiumou", "求谋占"),
+    "study": ("qiuming", "求名占"),
+    "love": ("hunyin", "婚姻占"),
+    "travel": ("chuxing", "出行占"),
+    "dwelling": ("jiazhai", "家宅占"),
+}
+
+
+def _meihua_jue_readings(kb, tp):
+    """体用总诀恒附；所问类别有对应占章则并附。缺库则不附。"""
+    readings = []
+    if kb.has("meihua:2:tiyong"):
+        readings.append(Reading(cite_id="meihua:2:tiyong",
+                                role="体用总诀（梅花断法之纲）", primary=False))
+    zhan = TOPIC_ZHAN.get(tp.key) if tp is not None else None
+    if zhan and kb.has(f"meihua:2:zhan:{zhan[0]}"):
+        readings.append(Reading(cite_id=f"meihua:2:zhan:{zhan[0]}",
+                                role=f"所问类占诀（梅花·{zhan[1]}）", primary=False))
+    return readings
+
+
+def select_meihua(kb: KnowledgeBase, ben_id: int, zhi_id: int, moving_pos: int,
+                  tp=None) -> Selection:
+    ti, yong = tiyong(kb, ben_id, moving_pos)
     return Selection(
-        rule="依《梅花易数》体用之说：本卦为体，动爻为断，之卦为势",
+        rule=(f"依《梅花易数》体用之说：动爻在{'下' if moving_pos <= 3 else '上'}卦，"
+              f"{yong}为用、{ti}为体；动爻爻辞主断，体用取象入解读"),
         readings=[
             _yao(kb, ben_id, moving_pos, "动爻爻辞（主断）", True),
-            _guaci(kb, ben_id, "本卦卦辞（体）", False),
+            _guaci(kb, ben_id, "本卦卦辞（参）", False),
             _guaci(kb, zhi_id, "之卦卦辞（势）", False),
-        ],
+        ] + _shuogua_readings(kb, ti, yong) + _meihua_jue_readings(kb, tp),
     )
 
 
@@ -109,8 +160,10 @@ def select_zhuzi(kb: KnowledgeBase, ben_id: int, zhi_id: int, moving: list) -> S
     return Selection(rule=rule, readings=readings)
 
 
-def select(kb: KnowledgeBase, method: str, ben_id: int, zhi_id: int, moving: list) -> Selection:
+def select(kb: KnowledgeBase, method: str, ben_id: int, zhi_id: int,
+           moving: list, tp=None) -> Selection:
+    """tp（问事类别）只在梅花法下决定占章附取，不影响朱子占法选文。"""
     if method == "meihua_time":
         assert len(moving) == 1, "梅花时间起卦应恰有一个动爻"
-        return select_meihua(kb, ben_id, zhi_id, moving[0])
+        return select_meihua(kb, ben_id, zhi_id, moving[0], tp)
     return select_zhuzi(kb, ben_id, zhi_id, moving)

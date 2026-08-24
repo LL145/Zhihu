@@ -2,6 +2,7 @@
 
 - 每条引文去标点后须逐字包含于其所标 cite_id 的原文之中；
 - 占断（judgment）必须以 [cite_id] 标注所据——无据不断；
+- 占断所据须含卦爻经传之文（王弼注、说卦取象不得单独立断）；
 - 解读中方括号标注的 cite_id 须属于本次给定的文本集合；
 - 必填字段齐全。任何一条不过即拒绝本次输出。
 """
@@ -57,8 +58,11 @@ def validate(result: dict, allowed: dict) -> list:
         return ["advice 须为数组"]
 
     _check_quotes(result["quotes"], allowed, errors)
-    if not _CITE_MARK.findall(result["judgment"]):
+    marks = _CITE_MARK.findall(result["judgment"])
+    if not marks:
         errors.append("占断（judgment）必须以 [cite_id] 标注所据原文——无据不断")
+    elif all(m.split(":")[0] in ("wangbi", "shuogua") for m in marks):
+        errors.append("占断所据须含卦爻经传之文——王弼注与说卦取象不得单独立断")
     _check_cite_marks(result["judgment"], allowed, errors, "占断")
     _check_cite_marks(result["interpretation"], allowed, errors, "解读")
     return errors

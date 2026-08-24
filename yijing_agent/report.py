@@ -54,6 +54,9 @@ def render_readings(kb, selection):
         note = kb.commentary(r.cite_id)
         if note:
             out.append(f"      〔王弼注〕{note['text']}")
+        wy = kb.wenyan(r.cite_id)
+        if wy:
+            out.append(f"      〔文言〕{wy['text']}")
         for cid in r.context_ids:
             ctx = kb.citation(cid)
             out.append(f"      · {ctx['source']}：{ctx['text']}")

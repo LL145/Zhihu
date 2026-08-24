@@ -116,7 +116,7 @@ class EventSession(_Session):
         ben = self.kb.id_of(self.cast.ben_binary)
         zhi = self.kb.id_of(self.cast.zhi_binary)
         self.sel = selection.select(self.kb, self.cast.method, ben, zhi,
-                                    self.cast.moving)
+                                    self.cast.moving, tp)
         primary = self.sel.primary
         self.vd = verdict.decide(primary.cite_id,
                                  self.kb.citation(primary.cite_id)["text"])

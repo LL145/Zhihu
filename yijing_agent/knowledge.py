@@ -13,6 +13,20 @@
     wangbi:{卦id}:{部位…}     对应经文单元的王弼注，如 wangbi:49:yao:5、
                               wangbi:1:tuan、wangbi:2:xiaoxiang:extra。
     注疏只作解读语境与引文来源，不参与断辞结论。
+
+易传补编（十翼之说卦、文言，data/yizhuan.json）：
+    shuogua:{章}[:{卦}]       说卦传，依朱子《周易本义》章次；类象诸章
+                              按八卦再分（如 shuogua:11:qian 乾之广象）。
+    wenyan:{卦id}:{部位…}     乾坤文言，按所释经文单元锚定（wenyan:1:guaci、
+                              wenyan:1:yao:3、wenyan:1:extra……）。
+    二者皆孔门传文（经传原文，可引为据）；说卦供梅花体用取象，
+    文言挂乾坤经文单元随选文自动附入。均不参与定例断辞。
+
+梅花占诀（《梅花易数》卷二，data/meihua.json）：
+    meihua:2:tiyong           体用总诀（梅花断法之纲，梅花法恒附）。
+    meihua:2:zhan:{章}        十八占之占章（如 meihua:2:zhan:hunyin），
+                              按问事类别附取（selection.TOPIC_ZHAN）。
+    占法之书原文，可引为据；不参与定例断辞。
 """
 
 import json
@@ -22,6 +36,8 @@ from .trigrams import TRIGRAMS
 
 DATA_PATH = Path(__file__).parent / "data" / "hexagrams.json"
 WANGBI_PATH = Path(__file__).parent / "data" / "wangbi.json"
+YIZHUAN_PATH = Path(__file__).parent / "data" / "yizhuan.json"
+MEIHUA_PATH = Path(__file__).parent / "data" / "meihua.json"
 
 
 def wangbi_id(scripture_cite_id):
@@ -36,8 +52,23 @@ def wangbi_id(scripture_cite_id):
     raise ValueError(f"未知经文 cite_id: {scripture_cite_id}")
 
 
+_YAO_CH = {1: "初", 2: "二", 3: "三", 4: "四", 5: "五", 6: "上"}
+_CH_NUM = ("零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一")
+
+
+def _wenyan_label(gua_name, part):
+    """wenyan 单元键（如 guaci / yao:3 / extra）→ 展示名。"""
+    if part == "guaci":
+        return f"《文言·{gua_name}》释卦辞"
+    if part == "extra":
+        return f"《文言·{gua_name}》释{'用九' if gua_name == '乾' else '用六'}"
+    pos = int(part.split(":")[1])
+    return f"《文言·{gua_name}》释{_YAO_CH[pos]}爻"
+
+
 class KnowledgeBase:
-    def __init__(self, path=DATA_PATH, wangbi_path=WANGBI_PATH):
+    def __init__(self, path=DATA_PATH, wangbi_path=WANGBI_PATH,
+                 yizhuan_path=YIZHUAN_PATH, meihua_path=MEIHUA_PATH):
         raw = json.loads(Path(path).read_text("utf-8"))
         self.meta = raw["meta"]
         self.by_id = {h["id"]: h for h in raw["hexagrams"]}
@@ -69,9 +100,49 @@ class KnowledgeBase:
         else:
             self.wangbi_meta = None
 
+        # 易传补编：说卦（独立单元）与文言（挂乾坤经文单元）
+        self._wenyan = {}
+        self.shuogua_ids = []
+        yp = Path(yizhuan_path) if yizhuan_path else None
+        if yp and yp.exists():
+            yz = json.loads(yp.read_text("utf-8"))
+            self.yizhuan_meta = yz["meta"]
+            for unit in yz["shuogua"]:
+                uid, chapter = unit["id"], unit["id"].split(":")[0]
+                label = f"《说卦传》第{_CH_NUM[int(chapter)]}章"
+                if unit.get("gua"):
+                    label += f"·{unit['gua']}"
+                self._add(f"shuogua:{uid}", label, unit["text"])
+                self.shuogua_ids.append(f"shuogua:{uid}")
+            for key, text in yz["wenyan"].items():
+                hid, part = key.split(":", 1)
+                gua_name = self.by_id[int(hid)]["name"]
+                wid = f"wenyan:{key}"
+                self._add(wid, _wenyan_label(gua_name, part), text)
+                scid = f"zhouyi:{hid}:{part}"
+                assert scid in self._citations, f"文言挂在未知经文单元: {scid}"
+                self._wenyan[scid] = self._citations[wid]
+        else:
+            self.yizhuan_meta = None
+
+        # 梅花占诀：《梅花易数》卷二体用总诀与十八占
+        mp = Path(meihua_path) if meihua_path else None
+        if mp and mp.exists():
+            mh = json.loads(mp.read_text("utf-8"))
+            self.meihua_meta = mh["meta"]
+            for unit in mh["units"]:
+                self._add(f"meihua:{unit['id']}",
+                          f"《梅花易数》·卷二·{unit['title']}", unit["text"])
+        else:
+            self.meihua_meta = None
+
     def commentary(self, scripture_cite_id):
         """经文单元的王弼注 citation（无注返回 None）。"""
         return self._commentary.get(scripture_cite_id)
+
+    def wenyan(self, scripture_cite_id):
+        """经文单元的文言传 citation（仅乾坤有，无则返回 None）。"""
+        return self._wenyan.get(scripture_cite_id)
 
     def _add(self, cite_id, label, text):
         self._citations[cite_id] = {"cite_id": cite_id, "source": label, "text": text}

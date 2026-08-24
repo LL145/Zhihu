@@ -18,5 +18,9 @@ TRIGRAMS = {
 BY_NUM = {v["num"]: k for k, v in TRIGRAMS.items()}
 BY_LINES = {v["lines"]: k for k, v in TRIGRAMS.items()}
 
+#: 卦名拼音键（cite_id 用，如 shuogua:11:qian）
+PINYIN = {"乾": "qian", "兑": "dui", "离": "li", "震": "zhen",
+          "巽": "xun", "坎": "kan", "艮": "gen", "坤": "kun"}
+
 ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
 GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
