@@ -106,6 +106,9 @@ class App(ttk.Frame):
                                    state="readonly")
         self.gender.current(0)
         self.gender.pack(side="left")
+        self.both_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(row2, text="卦盘并占（命理问＋生辰时两断并陈）",
+                        variable=self.both_var).pack(side="left", padx=(10, 0))
         ttk.Button(row2, text="设置（API Key）…",
                    command=self.open_settings).pack(side="right")
 
@@ -197,10 +200,12 @@ class App(ttk.Frame):
         self._set_status("推演中（判类·起卦/排盘·选文）……")
         threading.Thread(
             target=self._prepare_worker,
-            args=(token, question, method, birth, override, cfg),
+            args=(token, question, method, birth, override, cfg,
+                  self.both_var.get()),
             daemon=True).start()
 
-    def _prepare_worker(self, token, question, method, birth, override, cfg):
+    def _prepare_worker(self, token, question, method, birth, override, cfg,
+                        both):
         """判类（规则→占者判类）与全部确定性步骤在工作线程完成，不卡界面。"""
         try:
             tp = service.resolve_topic(
@@ -209,7 +214,7 @@ class App(ttk.Frame):
             session = service.prepare(
                 question, method=method,
                 birth_dt=birth[0] if birth else None,
-                gender=birth[1] if birth else None, tp=tp)
+                gender=birth[1] if birth else None, tp=tp, both=both)
             self._q.put(("prepared", token, session, cfg))
         except service.RefusalError as e:
             self._q.put(("refused", token, str(e)))

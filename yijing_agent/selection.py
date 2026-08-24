@@ -83,14 +83,33 @@ TOPIC_ZHAN = {
     "dwelling": ("jiazhai", "家宅占"),
 }
 
+#: 类别未映射时按问事题材（紫微分宫关键词表）回落之占章
+ASPECT_ZHAN = {
+    "财帛": ("qiucai", "求财占"),
+    "官禄": ("qiuming", "求名占"),
+    "妻妾": ("hunyin", "婚姻占"),
+    "田宅": ("jiazhai", "家宅占"),
+    "迁移": ("chuxing", "出行占"),
+}
 
-def _meihua_jue_readings(kb, tp):
-    """体用总诀恒附；所问类别有对应占章则并附。缺库则不附。"""
+
+def _pick_zhan(tp, question):
+    """占章取法：类别映射优先，未中则按题材关键词回落（同一张分宫表）。"""
+    zhan = TOPIC_ZHAN.get(tp.key) if tp is not None else None
+    if zhan is None and question:
+        from .ziwei.selection import detect_aspect
+        aspect, _kw = detect_aspect(question)
+        zhan = ASPECT_ZHAN.get(aspect)
+    return zhan
+
+
+def _meihua_jue_readings(kb, tp, question=None):
+    """体用总诀恒附；所问有对应占章则并附。缺库则不附。"""
     readings = []
     if kb.has("meihua:2:tiyong"):
         readings.append(Reading(cite_id="meihua:2:tiyong",
                                 role="体用总诀（梅花断法之纲）", primary=False))
-    zhan = TOPIC_ZHAN.get(tp.key) if tp is not None else None
+    zhan = _pick_zhan(tp, question)
     if zhan and kb.has(f"meihua:2:zhan:{zhan[0]}"):
         readings.append(Reading(cite_id=f"meihua:2:zhan:{zhan[0]}",
                                 role=f"所问类占诀（梅花·{zhan[1]}）", primary=False))
@@ -98,7 +117,7 @@ def _meihua_jue_readings(kb, tp):
 
 
 def select_meihua(kb: KnowledgeBase, ben_id: int, zhi_id: int, moving_pos: int,
-                  tp=None) -> Selection:
+                  tp=None, question=None) -> Selection:
     ti, yong = tiyong(kb, ben_id, moving_pos)
     return Selection(
         rule=(f"依《梅花易数》体用之说：动爻在{'下' if moving_pos <= 3 else '上'}卦，"
@@ -107,7 +126,8 @@ def select_meihua(kb: KnowledgeBase, ben_id: int, zhi_id: int, moving_pos: int,
             _yao(kb, ben_id, moving_pos, "动爻爻辞（主断）", True),
             _guaci(kb, ben_id, "本卦卦辞（参）", False),
             _guaci(kb, zhi_id, "之卦卦辞（势）", False),
-        ] + _shuogua_readings(kb, ti, yong) + _meihua_jue_readings(kb, tp),
+        ] + _shuogua_readings(kb, ti, yong)
+          + _meihua_jue_readings(kb, tp, question),
     )
 
 
@@ -161,9 +181,9 @@ def select_zhuzi(kb: KnowledgeBase, ben_id: int, zhi_id: int, moving: list) -> S
 
 
 def select(kb: KnowledgeBase, method: str, ben_id: int, zhi_id: int,
-           moving: list, tp=None) -> Selection:
-    """tp（问事类别）只在梅花法下决定占章附取，不影响朱子占法选文。"""
+           moving: list, tp=None, question=None) -> Selection:
+    """tp 与 question 只在梅花法下决定占章附取，不影响朱子占法选文。"""
     if method == "meihua_time":
         assert len(moving) == 1, "梅花时间起卦应恰有一个动爻"
-        return select_meihua(kb, ben_id, zhi_id, moving[0], tp)
+        return select_meihua(kb, ben_id, zhi_id, moving[0], tp, question)
     return select_zhuzi(kb, ben_id, zhi_id, moving)

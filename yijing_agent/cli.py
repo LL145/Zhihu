@@ -118,17 +118,21 @@ def _followup_loop(redline_check, ask_fn, render_fn):
         history.append((ask, fu))
 
 
+def _print_key_hint():
+    path, created = config.ensure_file()
+    if created:
+        print(f"（已生成配置文件：{path}\n"
+              f"  用记事本打开它，把 api_key 换成你的 OpenRouter API Key，"
+              f"model 可换成任意 OpenRouter 模型 ID，保存后重新运行即可获得大模型解读。）")
+    else:
+        print(f"（尚未填写 OpenRouter API Key：请编辑 {path} 的 api_key 字段，"
+              f"或设置环境变量 OPENROUTER_API_KEY。当前以无解读模式输出。）")
+
+
 def _llm_block(cfg, run_interpret, run_followup):
     """解读 + 追问的公共流程；缺 key 时给配置提示。"""
     if not cfg["api_key"]:
-        path, created = config.ensure_file()
-        if created:
-            print(f"（已生成配置文件：{path}\n"
-                  f"  用记事本打开它，把 api_key 换成你的 OpenRouter API Key，"
-                  f"model 可换成任意 OpenRouter 模型 ID，保存后重新运行即可获得大模型解读。）")
-        else:
-            print(f"（尚未填写 OpenRouter API Key：请编辑 {path} 的 api_key 字段，"
-                  f"或设置环境变量 OPENROUTER_API_KEY。当前以无解读模式输出。）")
+        _print_key_hint()
         return
     try:
         result, attempts = run_interpret()
@@ -143,6 +147,35 @@ def _llm_block(cfg, run_interpret, run_followup):
         for err in e.errors:
             print(f"  - {err}")
         print("已降级为仅原文与结论的输出。")
+
+
+def _run_dual(question, tp, when, method, salt, birth, no_llm):
+    """卦盘并占：盘断其势 + 卦断其事，并陈不合断（各自定例/占断/存证）。"""
+    s = service.prepare(question, method=method, when=when, salt=salt,
+                        birth_dt=birth[0], gender=birth[1], tp=tp, both=True)
+    print()
+    print(s.body_text())
+    print()
+    cfg = config.load()
+    if not no_llm:
+        if not cfg["api_key"]:
+            _print_key_hint()
+        else:
+            try:
+                text, _ = s.interpret(cfg)
+                print(text)
+                _followup_loop(redline.check,
+                               lambda h, a: s.followup(cfg, a),
+                               lambda t: t)
+            except InterpreterError as e:
+                print(f"〔解读不可用〕{e}")
+                for err in e.errors:
+                    print(f"  - {err}")
+                print("已降级为仅原文与结论的输出。")
+    print()
+    print(s.repro_text())
+    print()
+    print("※ " + report.DISCLAIMER)
 
 
 def _run_chart(question, tp, when, birth_dt, gender, no_llm):
@@ -200,6 +233,9 @@ def main(argv=None):
     p.add_argument("--topic", choices=[name for _k, name in topic.CATEGORIES],
                    help="手动指定问事类别（缺省自动判类：关键词规则优先，"
                         "规则未中且已配模型时由占者判类并标注）")
+    p.add_argument("--both", action="store_true",
+                   help="卦盘并占（命理之问＋生辰时）：盘断其势之外，另以同一"
+                        "问题起卦断其事，两断并陈、互不合断")
     p.add_argument("--no-llm", action="store_true", help="不调用大模型，仅输出原文与结论")
     args = p.parse_args(argv)
 
@@ -233,7 +269,11 @@ def main(argv=None):
     if tp.engine_hint == "chart":
         birth = _resolve_birth(args, allow_prompt=interactive)
         if birth:
-            _run_chart(question, tp, when, birth[0], birth[1], args.no_llm)
+            if args.both:
+                _run_dual(question, tp, when, args.method, args.salt, birth,
+                          args.no_llm)
+            else:
+                _run_chart(question, tp, when, birth[0], birth[1], args.no_llm)
             if interactive and getattr(sys, "frozen", False):
                 try:
                     input("\n（回车退出）")
