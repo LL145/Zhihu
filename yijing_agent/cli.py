@@ -15,7 +15,7 @@ import re
 import sys
 from datetime import datetime
 
-from . import casting, config, redline, report, selection, topic, verdict
+from . import casting, config, lunar, redline, report, selection, topic, verdict
 from .knowledge import KnowledgeBase
 from .llm import InterpreterError, followup, interpret
 from .trigrams import ZHI
@@ -156,7 +156,8 @@ def _run_chart(question, tp, when, birth_dt, gender, no_llm):
 
     print()
     print(f"所问：{question}")
-    print(f"类别：{tp.name}（卦断事，盘论人：此问依生辰以紫微命引擎作答）")
+    print("引擎：紫微命引擎（盘论人：此问依生辰排盘作答）")
+    print(f"类别：{tp.name}")
     print()
     print(zreport.render_chart(c))
     print()
@@ -186,7 +187,8 @@ def main(argv=None):
     p.add_argument("-q", "--question", help="所问之事（不传则进入交互输入）")
     p.add_argument("--method", choices=["time", "coin"], default="time",
                    help="起卦法：time=梅花易数时间起卦（默认，完全确定）；coin=铜钱法")
-    p.add_argument("--when", help="指定起卦/论限时刻 YYYY-MM-DD HH:MM（默认当前时刻；用于复现）")
+    p.add_argument("--when", help="指定起卦/论限时刻 YYYY-MM-DD HH:MM，按北京时间"
+                                  "（默认取当前时刻并自动换算为北京时间；用于复现）")
     p.add_argument("--salt", default="", help="铜钱法附加盐（同刻同问再占时区分用）")
     p.add_argument("--birth", help="出生日期（公历 YYYY-MM-DD，命理类问题用，紫微排盘）")
     p.add_argument("--birth-time", help="出生时辰（时辰名如「午」，或钟点如 11:30；缺则无法排盘）")
@@ -211,7 +213,7 @@ def main(argv=None):
         return 0
 
     tp = topic.classify(question)
-    when = _parse_when(args.when) if args.when else datetime.now()
+    when = _parse_when(args.when) if args.when else lunar.now_beijing()
 
     if tp.engine_hint == "chart":
         birth = _resolve_birth(args, allow_prompt=interactive)
@@ -238,6 +240,7 @@ def main(argv=None):
 
     print()
     print(f"所问：{question}")
+    print("引擎：易经事引擎（卦断事）")
     print(report.render_topic(tp))
     if tp.engine_hint == "chart":
         print("（欲以紫微命盘作答，请附生辰：--birth 2000-09-14 --birth-time 午 "

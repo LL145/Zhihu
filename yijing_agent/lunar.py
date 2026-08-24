@@ -1,15 +1,28 @@
 """公历 → 农历转换（起卦用），基于 cnlunar（纯 Python）。
 
 本产品显式约定（流派差异，如实标注，见 DESIGN.md 附录C）：
+- 全程一律北京时间（东八区）：农历由东八区定义，「当前时刻」起卦取
+  now_beijing()，同一时刻在任何时区起卦结果一致（可复现）；
 - 年支以农历正月初一为界（非立春），依《梅花易数》以农历年月日时起数的传统；
 - 闰月取本月月数（闰七月按七月起数），并在凭证中标注；
 - 晚子时（23:00-23:59）不换日，取当日农历日，时辰数为子（1）。
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import cnlunar
+
+_CST = timezone(timedelta(hours=8))   # 北京时间：固定 +8，无夏令时
+
+
+def now_beijing() -> datetime:
+    """当前时刻的北京时间（naive datetime）。
+
+    起卦/论限的「当前时刻」一律经此取得：系统时钟在哪个时区都得到
+    同一北京时间，农历换算（东八区定义）随之正确，结果全球可复现。
+    """
+    return datetime.now(_CST).replace(tzinfo=None)
 
 from .trigrams import GAN, ZHI
 

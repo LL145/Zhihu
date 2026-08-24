@@ -7,35 +7,37 @@
 大模型解读与追问在工作线程执行，结果经队列回主线程刷新。
 """
 
+import calendar
 import json
 import queue
-import re
 import threading
 import tkinter as tk
 from datetime import datetime
 from tkinter import messagebox, scrolledtext, ttk
 
-from . import config, service
+from . import config, lunar, service
 from .llm import InterpreterError
 from .trigrams import ZHI
 
 _TITLE = "算命 Agent —— 有典可依、可复现（卦断事，盘论人）"
 _SHICHEN_CHOICES = ["未知"] + [z + "时" for z in ZHI]
+# 出生年份下拉范围：今年（北京时间）起倒排至 1920（cnlunar 支持下限之内）
+_YEAR_CHOICES = [""] + [str(y) for y in range(lunar.now_beijing().year, 1919, -1)]
+_MONTH_CHOICES = [""] + [str(m) for m in range(1, 13)]
 
 
-def _parse_birth(date_s, shichen, gender):
-    """→ (datetime, gender) 或 None（未填全）。格式错抛 ValueError。"""
-    date_s = date_s.strip()
-    if not date_s and shichen == "未知" and not gender:
+def _parse_birth(year, month, day, shichen, gender):
+    """下拉选值 → (datetime, gender)，或 None（全部留空）。填而不全抛 ValueError。"""
+    if not (year or month or day) and shichen == "未知" and not gender:
         return None
-    if not date_s or shichen == "未知" or not gender:
-        raise ValueError("紫微排盘需出生日期、时辰、性别三项齐全；"
+    if not (year and month and day) or shichen == "未知" or not gender:
+        raise ValueError("紫微排盘需出生年、月、日、时辰、性别五项齐全；"
                          "时辰未知则无法排盘（可全部留空，改用易经事引擎）")
-    m = re.fullmatch(r"(\d{4})[-./年 ](\d{1,2})[-./月 ](\d{1,2})日?", date_s)
-    if not m:
-        raise ValueError(f"出生日期格式应为 YYYY-MM-DD：{date_s}")
     hour = ZHI.index(shichen[0]) * 2
-    return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)), hour), gender
+    try:
+        return datetime(int(year), int(month), int(day), hour), gender
+    except ValueError:
+        raise ValueError(f"公历中无此日期：{year}年{month}月{day}日") from None
 
 
 class App(ttk.Frame):
@@ -70,9 +72,24 @@ class App(ttk.Frame):
 
         row2 = ttk.Frame(self)
         row2.pack(fill="x", pady=(6, 0))
-        ttk.Label(row2, text="生辰（命格/时运类问题用，可留空）　出生日期：").pack(side="left")
-        self.birth = ttk.Entry(row2, width=12)
-        self.birth.pack(side="left")
+        ttk.Label(row2, text="生辰（公历；命格/时运类问题用，可留空）：").pack(side="left")
+        self.birth_y = ttk.Combobox(row2, values=_YEAR_CHOICES, width=6,
+                                    state="readonly")
+        self.birth_y.current(0)
+        self.birth_y.pack(side="left")
+        ttk.Label(row2, text="年").pack(side="left")
+        self.birth_m = ttk.Combobox(row2, values=_MONTH_CHOICES, width=3,
+                                    state="readonly")
+        self.birth_m.current(0)
+        self.birth_m.pack(side="left")
+        ttk.Label(row2, text="月").pack(side="left")
+        self.birth_d = ttk.Combobox(row2, values=self._day_choices(), width=3,
+                                    state="readonly")
+        self.birth_d.current(0)
+        self.birth_d.pack(side="left")
+        ttk.Label(row2, text="日").pack(side="left")
+        self.birth_y.bind("<<ComboboxSelected>>", self._update_days)
+        self.birth_m.bind("<<ComboboxSelected>>", self._update_days)
         ttk.Label(row2, text="　时辰：").pack(side="left")
         self.shichen = ttk.Combobox(row2, values=_SHICHEN_CHOICES, width=6,
                                     state="readonly")
@@ -107,6 +124,19 @@ class App(ttk.Frame):
         self.status = ttk.Label(self, text="※ " + service.DISCLAIMER,
                                 foreground="#666666")
         self.status.pack(fill="x", pady=(4, 0))
+
+    def _day_choices(self):
+        """当前所选年、月下的合法日数；年或月未选时给 1–31。"""
+        y, m = self.birth_y.get(), self.birth_m.get()
+        n = calendar.monthrange(int(y), int(m))[1] if y and m else 31
+        return [""] + [str(d) for d in range(1, n + 1)]
+
+    def _update_days(self, _event=None):
+        days = self._day_choices()
+        cur = self.birth_d.get()
+        self.birth_d.configure(values=days)
+        if cur not in days:            # 如 31 日遇小月：清空令用户重选
+            self.birth_d.set("")
 
     # ── 输出辅助 ────────────────────────────────────────────────────
 
@@ -143,7 +173,8 @@ class App(ttk.Frame):
             messagebox.showinfo(_TITLE, "请先输入所问之事。")
             return
         try:
-            birth = _parse_birth(self.birth.get(), self.shichen.get(),
+            birth = _parse_birth(self.birth_y.get(), self.birth_m.get(),
+                                 self.birth_d.get(), self.shichen.get(),
                                  self.gender.get())
         except ValueError as e:
             messagebox.showwarning(_TITLE, str(e))

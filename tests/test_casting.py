@@ -21,6 +21,13 @@ def test_lunar_known_date():
     assert lm.shichen_num == 9
 
 
+def test_now_beijing_is_utc_plus_8():
+    from datetime import timezone
+    utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    diff = lunar.now_beijing() - utc
+    assert abs(diff - timedelta(hours=8)) < timedelta(seconds=5)
+
+
 def test_lunar_midnight_shichen():
     # 23 点为子时（不换日约定：农历日仍取当日）
     lm = lunar.from_datetime(datetime(2026, 8, 24, 23, 10))

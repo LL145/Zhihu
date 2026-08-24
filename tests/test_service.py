@@ -15,6 +15,7 @@ def test_event_routing():
     assert isinstance(s, service.EventSession) and s.kind == "event"
     body = s.body_text()
     assert "所问：近期换工作是否合适" in body
+    assert "引擎：易经事引擎" in body
     assert "类别：事业" in body
     assert "断辞结论" in body
     assert "起卦凭证" in s.repro_text()
@@ -24,7 +25,7 @@ def test_chart_routing_with_birth():
     s = service.prepare("我今年运势如何", when=WHEN, birth_dt=BIRTH, gender="男")
     assert isinstance(s, service.ChartSession) and s.kind == "chart"
     body = s.body_text()
-    assert "紫微命引擎" in body
+    assert "引擎：紫微命引擎" in body
     assert "命宫·身 己卯" in body          # 十二宫盘面
     assert "巨门入限吉凶诀" in body
     assert "排盘凭证" in s.repro_text()

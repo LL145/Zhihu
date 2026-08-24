@@ -57,7 +57,7 @@ def cast_meihua(dt: datetime) -> CastResult:
             lines.append(7 if b == 1 else 8)
     repro = {
         "起卦法": "梅花易数·时间起卦（依《梅花易数》卷一）",
-        "公历时刻": dt.strftime("%Y-%m-%d %H:%M"),
+        "公历时刻": dt.strftime("%Y-%m-%d %H:%M") + "（北京时间）",
         "农历": lm.description,
         "取数": (f"年支{lm.year_gz[1]}={lm.year_zhi_num}，月={lm.month_num}，"
                  f"日={lm.day_num}，时{lm.shichen_zhi}={lm.shichen_num}"),
@@ -84,7 +84,7 @@ def cast_coin(question: str, dt: datetime, salt: str = "") -> CastResult:
         tosses.append("".join("背" if c else "字" for c in coins) + f"={value}")
     repro = {
         "起卦法": "铜钱法·六爻（依《卜筮正宗》三背老阳、三字老阴之法）",
-        "公历时刻": dt.isoformat(),
+        "公历时刻": dt.isoformat() + "（北京时间）",
         "种子算法": "SHA-256(问题文本|时刻ISO格式|盐)",
         "种子": seed_hex,
         "六掷（自下而上）": "；".join(tosses),

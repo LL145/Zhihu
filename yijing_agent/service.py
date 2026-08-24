@@ -5,9 +5,7 @@
 何处执行（GUI 放在工作线程）。红线拦截以 RefusalError 抛出。
 """
 
-from datetime import datetime
-
-from . import casting, redline, report, selection, topic, verdict
+from . import casting, lunar, redline, report, selection, topic, verdict
 from .knowledge import KnowledgeBase
 from .llm import followup as _followup
 from .llm import interpret as _interpret
@@ -38,7 +36,7 @@ def prepare(question, *, method="time", when=None, salt="",
     if refusal:
         raise RefusalError(refusal)
     tp = topic.classify(question)
-    when = when or datetime.now()
+    when = when or lunar.now_beijing()
     if tp.engine_hint == "chart" and birth_dt is not None and gender:
         return ChartSession(question, tp, when, birth_dt, gender)
     return EventSession(question, tp, when, method, salt)
@@ -96,7 +94,9 @@ class EventSession(_Session):
                                  self.kb.citation(primary.cite_id)["text"])
 
     def body_text(self):
-        parts = [f"所问：{self.question}", report.render_topic(self.tp)]
+        parts = [f"所问：{self.question}",
+                 "引擎：易经事引擎（卦断事）",
+                 report.render_topic(self.tp)]
         if self.tp.engine_hint == "chart":
             parts.append("（欲以紫微命盘作答，请填生辰：出生日期＋时辰＋性别；"
                          "时辰未知则无法排盘）")
@@ -136,7 +136,8 @@ class ChartSession(_Session):
     def body_text(self):
         return "\n".join([
             f"所问：{self.question}",
-            f"类别：{self.tp.name}（卦断事，盘论人：此问依生辰以紫微命引擎作答）",
+            "引擎：紫微命引擎（盘论人：此问依生辰排盘作答）",
+            f"类别：{self.tp.name}",
             "",
             zreport.render_chart(self.chart), "",
             zreport.render_readings(self.zkb, self.sel), "",
