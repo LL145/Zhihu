@@ -27,6 +27,12 @@ PATCHES = {
     ),
 }
 
+# 源仓库错字订正（依通行本，错文必须在场方可替换）。key: (词典名, 条目key)
+FIXES = {
+    # 乾九二小象「见龙再田」：通行本作「在田」，且同卦爻辞即「见龙在田」
+    ("xiang", "iching__1_2"): ("见龙再田", "见龙在田"),
+}
+
 
 def main() -> None:
     if len(sys.argv) < 2:
@@ -46,6 +52,11 @@ def main() -> None:
         if key not in target:
             target[key] = text
             patched.append(f"{dict_name}:{key}")
+    for (dict_name, key), (wrong, right) in FIXES.items():
+        target = {"tuan": tuan, "xiang": xiang}[dict_name]
+        assert wrong in target[key], f"订正落空（源已改？）: {dict_name}:{key} {wrong}"
+        target[key] = target[key].replace(wrong, right)
+        patched.append(f"{dict_name}:{key}(订正 {wrong}→{right})")
 
     assert len(iching) == 64, f"卦数异常: {len(iching)}"
     assert len(xiang) == 450, f"象传条数异常: {len(xiang)}（应为 64 大象 + 386 小象）"

@@ -79,8 +79,9 @@ py -m yijing_agent -q "所问之事" --no-llm
 
 输出包含：问事类别（事业/学业/情感/出行…，规则分类，决定解读落点）→
 卦象（本卦、之卦、互卦、动爻）→ 所据经文（占法规则选定的原文，
-含彖、象传，逐条标出处）→ 断辞结论（吉/凶/谨/忌…，来自确定性映射）→
-大模型解读（引文逐字校验后输出）→ 起卦凭证（算式或种子，可自行复算）。
+含彖、象传与**王弼注**，逐条标出处）→ 断辞结论（吉/凶/谨/忌…，
+来自确定性映射，注疏不参与断辞）→ 大模型解读（引文逐字校验后输出）→
+起卦凭证（算式或种子，可自行复算）。
 
 **多轮追问**：在终端交互运行且已配置大模型时，解读输出后可就本卦继续
 追问（如"如果拖到年底再动呢"）。追问不重新起卦，回答仍只能依据本次
@@ -100,10 +101,12 @@ yijing_agent/
   redline.py     红线拦截：医疗/投资/法律/寿夭类问题拒答
   lunar.py       公历→农历（cnlunar），流派约定显式标注
   data/          知识库数据与校对说明（见 data/PROOFREADING.md）
+                 hexagrams.json 经传原文；wangbi.json 王弼《周易注》（注疏层）
 tools/
-  import_openiching.py   从 open-iching 仓库导入并校验典籍数据
-tests/           83 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
-                 引文校验、LLM 重试与追问
+  import_openiching.py        从 open-iching 仓库导入并校验典籍数据
+  import_wikisource_wangbi.py 从维基文库《周易正義》导入王弼注（经文锚定对齐）
+tests/           89 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
+                 注疏挂载、引文校验、LLM 重试与追问
 ```
 
 ## 测试
@@ -115,9 +118,13 @@ py -m pytest tests/ -q
 
 ## 数据与校对
 
-典籍文本导入自 [john-walks-slow/open-iching](https://github.com/john-walks-slow/open-iching)
+经传原文导入自 [john-walks-slow/open-iching](https://github.com/john-walks-slow/open-iching)
 （ISC 许可，经传原文为公版），导入时做了 64 卦 / 384 爻 / 彖象条数与爻画
-一致性的完整校验，**但尚未依通行本人工校对**——校对流程与状态见
+一致性的完整校验。王弼《周易注》（598 条）导入自中文维基文库
+[《周易正義》](https://zh.wikisource.org/wiki/周易正義)（CC BY-SA 4.0，
+含维基文库贡献者所加标点；各页面版本号记录于数据文件 meta），以经文
+锚定逐段对齐，注疏只作解读语境、不参与断辞结论。两者**均尚未依通行本
+人工校对**——校对流程与状态见
 [yijing_agent/data/PROOFREADING.md](yijing_agent/data/PROOFREADING.md)。
 
 ## 免责声明

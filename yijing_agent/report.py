@@ -51,6 +51,9 @@ def render_readings(kb, selection):
         star = "◆" if r.primary else "◇"
         out.append(f"  {star} {r.role}")
         out.append(f"    {c['source']}：{c['text']}")
+        note = kb.commentary(r.cite_id)
+        if note:
+            out.append(f"      〔王弼注〕{note['text']}")
         for cid in r.context_ids:
             ctx = kb.citation(cid)
             out.append(f"      · {ctx['source']}：{ctx['text']}")

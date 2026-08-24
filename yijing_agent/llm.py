@@ -17,8 +17,10 @@ _SYSTEM = """你是一名严谨的《周易》典籍讲解者。你会收到：�
 依占法规则选定的经文原文（各有 cite_id 编号）、以及由规则确定的结论（verdict 与 action）。
 
 硬性规则：
-1. 只可依据【所据文本】中给出的原文进行解读，不得引入其中没有的任何"典籍内容"或古语。\
-【问事类别与解读落点】是占法指引而非典籍原文，只用于确定解读方向，不得当作原文引用。
+1. 只可依据【所据文本】与【注疏】中给出的原文进行解读，不得引入其中没有的任何"典籍内容"或古语。\
+【问事类别与解读落点】是占法指引而非典籍原文，只用于确定解读方向，不得当作原文引用。\
+注疏是后人（王弼）对经文的解释：引用时须标其 cite_id 并表明是注家之言，不得与经文混同，\
+更不得据注疏改动结论。
 2. 引文必须逐字照抄【所据文本】的文字，并标注其 cite_id。
 3. 结论（verdict/action）由规则给定且已向用户展示，你不得改判、弱化或加强——\
 不得把「凶」说成「略有不顺」，也不得把「谨」拔高为「大吉」。你的解读只回答\
@@ -54,6 +56,11 @@ def _allowed_texts(kb, selection):
         allowed[r.cite_id] = kb.citation(r.cite_id)["text"]
         for cid in r.context_ids:
             allowed[cid] = kb.citation(cid)["text"]
+    # 注疏层：所选经文对应的王弼注一并纳入可引文本（不改判，只作语境）
+    for scid in list(allowed):
+        c = kb.commentary(scid)
+        if c:
+            allowed[c["cite_id"]] = c["text"]
     return allowed
 
 
@@ -71,7 +78,16 @@ def _payload(question, cast, selection, verdict, allowed_texts, kb, topic=None):
     lines.append("")
     lines.append("【所据文本】（解读只可使用以下原文）")
     for cid, text in allowed_texts.items():
-        lines.append(f"[{cid}] {kb.citation(cid)['source']}：{text}")
+        if not cid.startswith("wangbi:"):
+            lines.append(f"[{cid}] {kb.citation(cid)['source']}：{text}")
+    notes = [(cid, text) for cid, text in allowed_texts.items()
+             if cid.startswith("wangbi:")]
+    if notes:
+        lines.append("")
+        lines.append("【注疏】（王弼注，后人解释；引用须标 cite_id，须与经文区分，"
+                     "不得据以改动结论）")
+        for cid, text in notes:
+            lines.append(f"[{cid}] {kb.citation(cid)['source']}：{text}")
     lines.append("")
     lines.append(f"【结论（规则已定，不得更改）】{verdict['verdict']}——{verdict['action']}")
     lines.append(f"（结论依据主断经文 [{verdict['cite_id']}] 之断辞）")

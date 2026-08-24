@@ -1,3 +1,4 @@
 -r requirements.txt
 pytest>=8
 zhdate==0.1
+opencc-python-reimplemented>=0.1.7  # tools/import_wikisource_wangbi.py 繁简转换

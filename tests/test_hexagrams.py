@@ -71,4 +71,8 @@ def test_citations_exist():
 
 def test_citation_counts():
     # 卦辞64 + 爻辞384 + 用九用六2 + 彖64 + 大象64 + 小象384 + 用九用六小象2
-    assert len(kb._citations) == 64 + 384 + 2 + 64 + 64 + 384 + 2
+    scripture = [c for c in kb._citations if not c.startswith("wangbi:")]
+    assert len(scripture) == 64 + 384 + 2 + 64 + 64 + 384 + 2
+    # 注疏层（王弼注）逐条可查
+    notes = [c for c in kb._citations if c.startswith("wangbi:")]
+    assert len(notes) == len(kb._commentary) >= 500
