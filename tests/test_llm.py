@@ -117,6 +117,29 @@ def test_topic_note_in_payload_and_marked_non_scripture(monkeypatch):
     assert "非典籍原文" in seen["payload"]
 
 
+def test_classify_topic(monkeypatch):
+    # 占者判类：温度 0、键须在类别表内、任何异常回落 None
+    seen = {}
+
+    def fake_post(*a, **k):
+        seen["temp"] = k["json"]["temperature"]
+        seen["user"] = k["json"]["messages"][1]["content"]
+        return _Resp('{"key": "love"}')
+
+    monkeypatch.setattr(llm.requests, "post", fake_post)
+    assert llm.classify_topic(CFG, "她最近老不理我怎么办") == "love"
+    assert seen["temp"] == 0 and "情感" in seen["user"]
+
+    monkeypatch.setattr(llm.requests, "post",
+                        lambda *a, **k: _Resp('{"key": "nonsense"}'))
+    assert llm.classify_topic(CFG, "问") is None
+
+    def raise_net(*a, **k):
+        raise OSError("network down")
+    monkeypatch.setattr(llm.requests, "post", raise_net)
+    assert llm.classify_topic(CFG, "问") is None
+
+
 def test_hecan_context_in_payload_and_quotes_validate(monkeypatch):
     # 合参（§6.2）：紫微断语进 payload 作语境，其引文过两库混合校验
     from yijing_agent.ziwei import chart as zchart

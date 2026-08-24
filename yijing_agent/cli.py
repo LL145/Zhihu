@@ -15,7 +15,8 @@ import re
 import sys
 from datetime import datetime
 
-from . import casting, config, lunar, redline, report, selection, topic, verdict
+from . import casting, config, lunar, redline, report, selection, service, \
+    topic, verdict
 from .knowledge import KnowledgeBase
 from .llm import InterpreterError, followup, interpret
 from .trigrams import ZHI
@@ -159,7 +160,7 @@ def _run_chart(question, tp, when, birth_dt, gender, no_llm):
     print()
     print(f"所问：{question}")
     print("引擎：紫微命引擎（盘论人：此问依生辰排盘作答）")
-    print(f"类别：{tp.name}")
+    print(f"类别：{tp.name}{report.topic_source_label(tp)}")
     print()
     print(zreport.render_chart(c))
     print()
@@ -196,6 +197,9 @@ def main(argv=None):
                                    "问具体事时命盘作合参语境（不改卦断）")
     p.add_argument("--birth-time", help="出生时辰（时辰名如「午」，或钟点如 11:30；缺则无法排盘）")
     p.add_argument("--gender", choices=["男", "女"], help="性别（大限顺逆用）")
+    p.add_argument("--topic", choices=[name for _k, name in topic.CATEGORIES],
+                   help="手动指定问事类别（缺省自动判类：关键词规则优先，"
+                        "规则未中且已配模型时由占者判类并标注）")
     p.add_argument("--no-llm", action="store_true", help="不调用大模型，仅输出原文与结论")
     args = p.parse_args(argv)
 
@@ -215,7 +219,15 @@ def main(argv=None):
         print(refusal)
         return 0
 
-    tp = topic.classify(question)
+    cfg = config.load()
+    override = {name: key for key, name in topic.CATEGORIES}.get(args.topic)
+    try:
+        tp = service.resolve_topic(question,
+                                   cfg=None if args.no_llm else cfg,
+                                   override=override)
+    except service.RefusalError as e:
+        print(e)
+        return 0
     when = _parse_when(args.when) if args.when else lunar.now_beijing()
 
     if tp.engine_hint == "chart":
@@ -270,7 +282,6 @@ def main(argv=None):
         print(zreport.render_context(*context))
     print()
 
-    cfg = config.load()
     if not args.no_llm:
         _llm_block(
             cfg,

@@ -138,7 +138,7 @@ def _parse_json(text):
     return json.loads(s[start:end + 1])
 
 
-def _request(cfg, messages, timeout):
+def _request(cfg, messages, timeout, temperature=0.4):
     resp = requests.post(
         f"{cfg['base_url'].rstrip('/')}/chat/completions",
         headers={
@@ -146,7 +146,8 @@ def _request(cfg, messages, timeout):
             "Content-Type": "application/json",
             "X-Title": "Zhihu Yijing Agent",
         },
-        json={"model": cfg["model"], "messages": messages, "temperature": 0.4},
+        json={"model": cfg["model"], "messages": messages,
+              "temperature": temperature},
         timeout=timeout,
     )
     if resp.status_code != 200:
@@ -172,6 +173,29 @@ def _attempt_loop(cfg, messages, allowed, check, max_attempts, timeout, fail_msg
                          "你的输出未通过校验，问题如下，请改正后重新输出完整 JSON：\n- "
                          + "\n- ".join(last_errors)})
     raise InterpreterError(fail_msg, last_errors)
+
+
+def classify_topic(cfg, question, timeout=30):
+    """占者判类：关键词规则未命中时，以模型定问事类别（判类三级之第二级）。
+
+    温度取 0；返回类别键，失败或键不在表内返回 None（调用方回落「其他」）。
+    判类只定选文框架，不作任何占断。
+    """
+    from . import topic as topic_mod
+    cats = "\n".join(f"- {k}：{name}" for k, name in topic_mod.CATEGORIES)
+    messages = [
+        {"role": "system",
+         "content": "你是占前司事者：只判定用户所问属于哪一类问事，不作任何占断"
+                    "或回答。只输出一个 JSON 对象 {\"key\": \"<类别键>\"}，"
+                    "键限于用户给出的列表；无法归类或语义不明用 other。"},
+        {"role": "user", "content": f"类别（键：名）：\n{cats}\n\n所问：{question}"},
+    ]
+    try:
+        content = _request(cfg, messages, timeout, temperature=0)
+        key = str(_parse_json(content).get("key", ""))
+    except Exception:          # 判类失败不致命：网络/解析异常一律回落规则结果
+        return None
+    return key if key in dict(topic_mod.CATEGORIES) else None
 
 
 def interpret(cfg, kb, question, cast, selection, verdict, topic=None,

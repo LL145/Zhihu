@@ -15,7 +15,7 @@ import tkinter as tk
 from datetime import datetime
 from tkinter import messagebox, scrolledtext, ttk
 
-from . import config, lunar, service
+from . import config, lunar, service, topic
 from .llm import InterpreterError
 from .trigrams import ZHI
 
@@ -49,6 +49,7 @@ class App(ttk.Frame):
         self.session = None
         self._q = queue.Queue()
         self._busy = False
+        self._run_token = None    # 本次起卦标识：旧线程结果不入新一卦
         self._build()
         self.after(100, self._poll)
 
@@ -63,6 +64,11 @@ class App(ttk.Frame):
         self.question = ttk.Entry(row1)
         self.question.pack(side="left", fill="x", expand=True, padx=4)
         self.question.bind("<Return>", lambda e: self.run())
+        self.topic_box = ttk.Combobox(
+            row1, values=["自动判类"] + [n for _k, n in topic.CATEGORIES],
+            width=8, state="readonly")
+        self.topic_box.current(0)
+        self.topic_box.pack(side="left", padx=(4, 0))
         self.method = ttk.Combobox(row1, values=["时间起卦", "铜钱法"],
                                    width=8, state="readonly")
         self.method.current(0)
@@ -180,31 +186,35 @@ class App(ttk.Frame):
             messagebox.showwarning(_TITLE, str(e))
             return
         method = "time" if self.method.get() == "时间起卦" else "coin"
+        chosen = self.topic_box.get()
+        override = {n: k for k, n in topic.CATEGORIES}.get(chosen)
         self._clear()
         self._enable_followup(False)
         self.session = None
+        cfg = config.load()
+        self._run_token = token = object()
+        self._set_busy(True)
+        self._set_status("推演中（判类·起卦/排盘·选文）……")
+        threading.Thread(
+            target=self._prepare_worker,
+            args=(token, question, method, birth, override, cfg),
+            daemon=True).start()
+
+    def _prepare_worker(self, token, question, method, birth, override, cfg):
+        """判类（规则→占者判类）与全部确定性步骤在工作线程完成，不卡界面。"""
         try:
+            tp = service.resolve_topic(
+                question, cfg=cfg if cfg["api_key"] else None,
+                override=override)
             session = service.prepare(
                 question, method=method,
                 birth_dt=birth[0] if birth else None,
-                gender=birth[1] if birth else None)
+                gender=birth[1] if birth else None, tp=tp)
+            self._q.put(("prepared", token, session, cfg))
         except service.RefusalError as e:
-            self._append(str(e))
-            return
-        self.session = session
-        self._append(session.body_text())
-        self._append("")
-
-        cfg = config.load()
-        if not cfg["api_key"]:
-            self._append("（未配置 OpenRouter API Key：点右上「设置」填入后可获得"
-                         "大模型解读与追问。当前为仅原文与结论的输出。）")
-            self._finish_output()
-            return
-        self._set_busy(True)
-        self._set_status(f"大模型解读生成中（{cfg['model']}，引文将逐字校验）……")
-        threading.Thread(target=self._interpret_worker, args=(session, cfg),
-                         daemon=True).start()
+            self._q.put(("refused", token, str(e)))
+        except Exception as e:                    # 判类网络异常等不砸界面
+            self._q.put(("refused", token, f"出错：{e}"))
 
     def _interpret_worker(self, session, cfg):
         try:
@@ -260,7 +270,33 @@ class App(ttk.Frame):
         try:
             while True:
                 msg = self._q.get_nowait()
-                kind, session = msg[0], msg[1]
+                kind = msg[0]
+                if kind in ("prepared", "refused"):
+                    if msg[1] is not self._run_token:   # 已开新一卦
+                        continue
+                    if kind == "refused":
+                        self._append(msg[2])
+                        self._set_busy(False)
+                        self._set_status("※ " + service.DISCLAIMER)
+                        continue
+                    _, _, session, cfg = msg
+                    self.session = session
+                    self._append(session.body_text())
+                    self._append("")
+                    if not cfg["api_key"]:
+                        self._append("（未配置 OpenRouter API Key：点右上「设置」"
+                                     "填入后可获得占断与讲释。当前为仅原文与"
+                                     "定例的输出。）")
+                        self._finish_output()
+                        self._set_busy(False)
+                        self._set_status("※ " + service.DISCLAIMER)
+                        continue
+                    self._set_status(f"占断生成中（{cfg['model']}，"
+                                     "引文将逐字校验）……")
+                    threading.Thread(target=self._interpret_worker,
+                                     args=(session, cfg), daemon=True).start()
+                    continue
+                session = msg[1]
                 if session is not self.session:   # 已开新一卦，丢弃旧结果
                     continue
                 if kind == "interp_ok":

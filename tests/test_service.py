@@ -85,6 +85,40 @@ def test_refusal_and_empty():
         service.prepare("   ")
 
 
+def test_resolve_topic_three_tiers(monkeypatch):
+    # 一级：用户指定最优先，纵关键词命中他类
+    t = service.resolve_topic("近期换工作是否合适", override="love")
+    assert t.name == "情感" and t.source == "user"
+    # 二级：规则命中即不调模型
+    def boom(*a, **k):
+        raise AssertionError("规则命中时不得调用占者判类")
+    monkeypatch.setattr(service, "_classify_topic", boom)
+    t = service.resolve_topic("近期换工作是否合适",
+                              cfg={"api_key": "k", "model": "m"})
+    assert t.name == "事业" and t.source == "rule"
+    # 三级：规则未中且配了模型 → 占者判类，来源标注
+    monkeypatch.setattr(service, "_classify_topic", lambda cfg, q: "love")
+    t = service.resolve_topic("她最近老不理我怎么办",
+                              cfg={"api_key": "k", "model": "m"})
+    assert t.name == "情感" and t.source == "llm"
+    # 判类失败回落「其他」；无 cfg 不调模型
+    monkeypatch.setattr(service, "_classify_topic", lambda cfg, q: None)
+    assert service.resolve_topic("她最近老不理我怎么办",
+                                 cfg={"api_key": "k"}).key == "other"
+    monkeypatch.setattr(service, "_classify_topic", boom)
+    assert service.resolve_topic("她最近老不理我怎么办").key == "other"
+    # 红线仍先行
+    with pytest.raises(service.RefusalError):
+        service.resolve_topic("我该买哪只股票", override="career")
+
+
+def test_resolved_topic_flows_into_session():
+    tp = service.resolve_topic("她最近老不理我怎么办", override="love")
+    s = service.prepare("她最近老不理我怎么办", when=WHEN, tp=tp)
+    assert isinstance(s, service.EventSession)
+    assert "类别：情感〔用户指定〕" in s.body_text()
+
+
 def test_coin_method_deterministic():
     a = service.prepare("某事", method="coin", when=WHEN)
     b = service.prepare("某事", method="coin", when=WHEN)

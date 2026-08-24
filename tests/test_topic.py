@@ -69,3 +69,18 @@ def test_all_rules_have_notes():
 def test_deterministic():
     q = "近期换一份工作是否合适"
     assert topic.classify(q) == topic.classify(q)
+
+
+def test_by_key_and_categories():
+    import pytest
+    t = topic.by_key("love", source="user")
+    assert t.name == "情感" and t.source == "user" and t.engine_hint == "event"
+    assert topic.by_key("other").name == "其他"
+    keys = dict(topic.CATEGORIES)
+    assert "fortune" in keys and keys["other"] == "其他"
+    with pytest.raises(KeyError):
+        topic.by_key("nonsense")
+
+
+def test_classify_source_is_rule():
+    assert topic.classify("近期换一份工作是否合适").source == "rule"

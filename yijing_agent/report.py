@@ -67,8 +67,16 @@ def render_verdict(verdict):
             f"  依据：{verdict['basis']} {audited}")
 
 
+_TOPIC_SOURCE = {"llm": "〔占者判类〕", "user": "〔用户指定〕"}
+
+
+def topic_source_label(topic):
+    """判类来源标注：规则命中不注，占者判类/用户指定如实标明。"""
+    return _TOPIC_SOURCE.get(getattr(topic, "source", "rule"), "")
+
+
 def render_topic(topic):
-    line = f"类别：{topic.name}"
+    line = f"类别：{topic.name}{topic_source_label(topic)}"
     if topic.engine_hint == "chart":
         line += ("（属命理之问：未提供生辰，本次以易经事引擎"
                  "就当下之势作断，不论终身）")

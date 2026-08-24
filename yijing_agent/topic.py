@@ -18,6 +18,7 @@ class Topic:
     note: str
     engine_hint: str  # "event" | "chart"
     matched: str      # 命中的关键词；未命中（其他）为空串
+    source: str = "rule"   # rule=关键词规则 | llm=占者判类 | user=用户指定
 
 
 # 顺序即优先级：时运最前——问「×运/运势」即是问时运之消长，纵带具体
@@ -76,6 +77,12 @@ _DEFAULT = Topic(
     note="就所问之事直断可行与否、顺阻所在；建议落到可执行的行动。")
 
 
+#: (key, 中文名) 全表——界面下拉与占者判类共用。分类法本身即正统之绪：
+#: 《梅花易数》十八占、六爻按类取用神、紫微十二宫皆是定类而占。
+CATEGORIES = tuple((key, name) for key, name, _h, _k, _n in _RULES) \
+    + (("other", "其他"),)
+
+
 def classify(question: str) -> Topic:
     """按规则顺序取第一个命中的类别；未命中归「其他」。确定性，无 LLM。"""
     for key, name, hint, keywords, note in _RULES:
@@ -84,3 +91,15 @@ def classify(question: str) -> Topic:
                 return Topic(key=key, name=name, note=note,
                              engine_hint=hint, matched=kw)
     return _DEFAULT
+
+
+def by_key(key: str, source: str = "user") -> Topic:
+    """按类别键直接构造 Topic——用户指定或占者判类时用。"""
+    for k, name, hint, _kw, note in _RULES:
+        if k == key:
+            return Topic(key=k, name=name, note=note, engine_hint=hint,
+                         matched="", source=source)
+    if key == "other":
+        return Topic(key="other", name=_DEFAULT.name, note=_DEFAULT.note,
+                     engine_hint="event", matched="", source=source)
+    raise KeyError(key)
