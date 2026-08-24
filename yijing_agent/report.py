@@ -70,7 +70,7 @@ def render_verdict(verdict):
 def render_topic(topic):
     line = f"类别：{topic.name}"
     if topic.engine_hint == "chart":
-        line += ("（属命理之问：紫微命引擎为后续版本，本次以易经事引擎"
+        line += ("（属命理之问：未提供生辰，本次以易经事引擎"
                  "就当下之势作断，不论终身）")
     return line
 
