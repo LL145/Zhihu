@@ -62,7 +62,7 @@ def render_readings(kb, selection):
 
 def render_verdict(verdict):
     audited = "（人工审定）" if verdict["audited"] else "（自动提取，待人工审定）"
-    return (f"══ 断辞结论 ══════════════════\n"
+    return (f"══ 断辞结论（定例·机断） ══════════════\n"
             f"  【{verdict['verdict']}】{verdict['action']}\n"
             f"  依据：{verdict['basis']} {audited}")
 
@@ -83,7 +83,9 @@ def render_followup(result):
 
 
 def render_interpretation(result):
-    out = ["── 解读（引文已逐字校验） " + "─" * 14]
+    out = ["── 占断与讲释（占者：大模型；引文已逐字校验） " + "─" * 6]
+    out.append("〔占断〕" + result["judgment"])
+    out.append("")
     out.append("〔白话〕" + result["translation"])
     out.append("")
     out.append(result["interpretation"])
@@ -92,3 +94,21 @@ def render_interpretation(result):
     for i, a in enumerate(result["advice"], 1):
         out.append(f"  {i}. {a}")
     return "\n".join(out)
+
+
+def attestation(model, result, attempts):
+    """占断存证：有条件可复现的凭证之一。
+
+    起卦/排盘/选文/定例由种子与时刻唯一确定，可重放复算；占断出自模型
+    （同问未必同断，如古之占者），以本存证哈希为准——定种子与存证，即定全局。
+    """
+    import hashlib
+    import json
+    digest = hashlib.sha256(
+        json.dumps(result, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    return ("── 占断存证 " + "─" * 28 + "\n"
+            f"  占者模型：{model}；第 {attempts} 次生成通过逐字校验\n"
+            f"  输出摘要：SHA-256 {digest}\n"
+            "  可复现性：起卦/排盘/选文/定例同种子必同刻可复算；"
+            "占断非确定，以本存证为准")

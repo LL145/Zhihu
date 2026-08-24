@@ -132,7 +132,8 @@ def _llm_block(cfg, run_interpret, run_followup):
     try:
         result, attempts = run_interpret()
         print(report.render_interpretation(result))
-        print(f"（模型：{cfg['model']}；第 {attempts} 次生成通过逐字校验）")
+        print()
+        print(report.attestation(cfg["model"], result, attempts))
         _followup_loop(redline.check,
                        lambda h, a: run_followup(result, h, a)[0],
                        report.render_followup)

@@ -24,6 +24,7 @@ def _good_payload():
     # 革九五「大人虎变，未占有孚。」
     return {
         "translation": "白话直译",
+        "judgment": "宜进，其变可孚。[zhouyi:49:yao:5]",
         "interpretation": "解读段落。[zhouyi:49:yao:5]",
         "advice": ["建议一", "建议二"],
         "quotes": [{"text": "大人虎变", "cite_id": "zhouyi:49:yao:5"}],

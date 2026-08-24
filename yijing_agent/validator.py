@@ -1,6 +1,7 @@
 """引文校验器：LLM 输出展示前的最后一道确定性闸门。
 
 - 每条引文去标点后须逐字包含于其所标 cite_id 的原文之中；
+- 占断（judgment）必须以 [cite_id] 标注所据——无据不断；
 - 解读中方括号标注的 cite_id 须属于本次给定的文本集合；
 - 必填字段齐全。任何一条不过即拒绝本次输出。
 """
@@ -10,7 +11,8 @@ import re
 _CJK = re.compile(r"[^㐀-鿿]")
 _CITE_MARK = re.compile(r"\[([a-z]+:[0-9]+(?::[a-z0-9]+)*)\]")
 
-REQUIRED_FIELDS = ("translation", "interpretation", "advice", "quotes")
+REQUIRED_FIELDS = ("translation", "judgment", "interpretation", "advice",
+                   "quotes")
 
 
 def normalize(text: str) -> str:
@@ -55,6 +57,9 @@ def validate(result: dict, allowed: dict) -> list:
         return ["advice 须为数组"]
 
     _check_quotes(result["quotes"], allowed, errors)
+    if not _CITE_MARK.findall(result["judgment"]):
+        errors.append("占断（judgment）必须以 [cite_id] 标注所据原文——无据不断")
+    _check_cite_marks(result["judgment"], allowed, errors, "占断")
     _check_cite_marks(result["interpretation"], allowed, errors, "解读")
     return errors
 

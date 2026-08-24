@@ -62,8 +62,8 @@ def test_hecan_context_wired_into_llm(monkeypatch):
     def fake_interpret(cfg, kb, question, cast, sel, vd, tp, context=None,
                        **kw):
         seen["context"] = context
-        return {"translation": "白", "interpretation": "解",
-                "advice": ["议"], "quotes": []}, 1
+        return {"translation": "白", "judgment": "断 [x:1]",
+                "interpretation": "解", "advice": ["议"], "quotes": []}, 1
 
     monkeypatch.setattr(service, "_interpret", fake_interpret)
     s.interpret({"model": "m"})
@@ -99,13 +99,16 @@ def test_followup_requires_interpret():
 
 def test_interpret_and_followup_wiring(monkeypatch):
     s = service.prepare("我今年运势如何", when=WHEN, birth_dt=BIRTH, gender="男")
-    fake = {"translation": "白话", "interpretation": "解读 [ziwei:3:daxian]",
+    fake = {"translation": "白话", "judgment": "占断 [ziwei:3:daxian]",
+            "interpretation": "解读 [ziwei:3:daxian]",
             "advice": ["建议"], "quotes": []}
 
     monkeypatch.setattr(service.zllm, "interpret_chart",
                         lambda *a, **k: (fake, 1))
     text, attempts = s.interpret({"model": "m"})
     assert attempts == 1 and "白话" in text
+    assert "〔占断〕" in text                       # 占者之断置于解读之首
+    assert "占断存证" in text and "SHA-256" in text  # 有条件可复现：输出留痕
     assert s.first_result is fake
 
     seen = {}

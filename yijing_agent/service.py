@@ -56,10 +56,12 @@ class _Session:
     # 子类实现：_interpret_call(cfg) / _followup_call(cfg, ask)
 
     def interpret(self, cfg):
-        """→ (渲染文本, 尝试次数)。校验不过抛 InterpreterError。"""
+        """→ (渲染文本＋占断存证, 尝试次数)。校验不过抛 InterpreterError。"""
         result, attempts = self._interpret_call(cfg)
         self.first_result = result
-        return report.render_interpretation(result), attempts
+        text = report.render_interpretation(result) + "\n\n" \
+            + report.attestation(cfg.get("model", "?"), result, attempts)
+        return text, attempts
 
     def followup(self, cfg, ask):
         """→ 渲染文本。须在 interpret 成功后调用；逐问过红线。"""

@@ -265,8 +265,7 @@ class App(ttk.Frame):
                     continue
                 if kind == "interp_ok":
                     _, _, text, attempts, model = msg
-                    self._append(text)
-                    self._append(f"（模型：{model}；第 {attempts} 次生成通过逐字校验）")
+                    self._append(text)     # 含占断存证（模型、次数、SHA-256）
                     self._finish_output()
                     self._enable_followup(True)
                 elif kind == "interp_err":

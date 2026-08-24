@@ -39,7 +39,7 @@ def test_payload_structure(env):
     assert "土五局" in p
     assert "命宫（己卯" in p            # 十二宫概要逐宫列出
     assert "[ziwei:2:ming:jumen:xian]" in p
-    assert "【结论（规则已定，不得更改）】中" in p
+    assert "【定例结论（机断，占断之对照基准）】中" in p
     assert "【问事类别与解读落点】" in p
 
 
@@ -48,6 +48,7 @@ def test_quote_validation_pass(env):
     allowed = zllm._allowed_texts(zkb, sel)
     result = {
         "translation": "白话",
+        "judgment": "此限成败不一，宜谨。[ziwei:3:daxian]",
         "interpretation": "解读段落 [ziwei:3:daxian]",
         "advice": ["建议一", "建议二"],
         "quotes": [{"text": "巨门主限化权星，最喜求谋万事成",
@@ -61,6 +62,7 @@ def test_quote_validation_rejects_fabrication(env):
     allowed = zllm._allowed_texts(zkb, sel)
     bad = {
         "translation": "白话",
+        "judgment": "此限宜谨。[ziwei:3:daxian]",
         "interpretation": "解读 [ziwei:3:daxian]",
         "advice": ["建议"],
         "quotes": [{"text": "巨门守财帛必大富", "cite_id": "ziwei:2:ming:jumen:xian"}],

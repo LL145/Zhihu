@@ -11,6 +11,7 @@ ALLOWED = {
 def _ok_result():
     return {
         "translation": "白话",
+        "judgment": "宜进，无咎。[zhouyi:1:yao:4]",
         "interpretation": "解读文字 [zhouyi:1:yao:4]",
         "advice": ["建议一", "建议二"],
         "quotes": [{"text": "或跃在渊，无咎", "cite_id": "zhouyi:1:yao:4"}],
@@ -53,6 +54,26 @@ def test_missing_field_rejected():
     r = _ok_result()
     del r["advice"]
     assert any("缺少字段" in e for e in validate(r, ALLOWED))
+
+
+def test_judgment_required():
+    r = _ok_result()
+    del r["judgment"]
+    assert any("judgment" in e for e in validate(r, ALLOWED))
+
+
+def test_judgment_without_cite_rejected():
+    # 无据不断：占断必须标注所据 cite_id
+    r = _ok_result()
+    r["judgment"] = "大吉大利，放手去做。"
+    assert any("无据不断" in e for e in validate(r, ALLOWED))
+
+
+def test_judgment_out_of_pool_cite_rejected():
+    r = _ok_result()
+    r["judgment"] = "宜进。[zhouyi:99:guaci]"
+    assert any("占断" in e and "zhouyi:99:guaci" in e
+               for e in validate(r, ALLOWED))
 
 
 def test_empty_quotes_rejected():
