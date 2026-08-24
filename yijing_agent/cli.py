@@ -10,9 +10,9 @@ import argparse
 import sys
 from datetime import datetime
 
-from . import casting, config, redline, report, selection, verdict
+from . import casting, config, redline, report, selection, topic, verdict
 from .knowledge import KnowledgeBase
-from .llm import InterpreterError, interpret
+from .llm import InterpreterError, followup, interpret
 
 
 def _ensure_utf8_stdout():
@@ -30,6 +30,39 @@ def _parse_when(s):
         except ValueError:
             continue
     raise SystemExit(f"无法解析时间: {s}（格式: YYYY-MM-DD HH:MM）")
+
+
+def _followup_loop(cfg, kb, question, cast, sel, vd, first_result, tp):
+    """多轮追问：不重新起卦，仍以本次所据经文与结论为据。仅在交互终端提供。"""
+    try:
+        if sys.stdin is None or not sys.stdin.isatty():
+            return
+    except (AttributeError, ValueError):
+        return
+    print()
+    print("── 追问（同卦续问，不重新起卦；直接回车结束） " + "─" * 6)
+    history = []
+    while True:
+        try:
+            ask = input("追问：").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if not ask:
+            break
+        refusal = redline.check(ask)
+        if refusal:
+            print(refusal)
+            continue
+        try:
+            fu, _ = followup(cfg, kb, question, cast, sel, vd, first_result,
+                             history, ask, tp)
+        except InterpreterError as e:
+            print(f"〔追问回答不可用〕{e}")
+            for err in e.errors:
+                print(f"  - {err}")
+            continue
+        print(report.render_followup(fu))
+        history.append((ask, fu))
 
 
 def main(argv=None):
@@ -59,6 +92,7 @@ def main(argv=None):
         print(refusal)
         return 0
 
+    tp = topic.classify(question)
     when = _parse_when(args.when) if args.when else datetime.now()
     kb = KnowledgeBase()
 
@@ -75,6 +109,7 @@ def main(argv=None):
 
     print()
     print(f"所问：{question}")
+    print(report.render_topic(tp))
     print()
     print(report.render_cast(kb, cast))
     print()
@@ -97,10 +132,11 @@ def main(argv=None):
                   f"或设置环境变量 OPENROUTER_API_KEY。当前以无解读模式输出。）")
     else:
         try:
-            result, attempts = interpret(cfg, kb, question, cast, sel, vd)
+            result, attempts = interpret(cfg, kb, question, cast, sel, vd, tp)
             print(report.render_interpretation(result))
             note = f"（模型：{cfg['model']}；第 {attempts} 次生成通过逐字校验）"
             print(note)
+            _followup_loop(cfg, kb, question, cast, sel, vd, result, tp)
         except InterpreterError as e:
             print(f"〔解读不可用〕{e}")
             for err in e.errors:

@@ -64,6 +64,21 @@ def render_verdict(verdict):
             f"  依据：{verdict['basis']} {audited}")
 
 
+def render_topic(topic):
+    line = f"类别：{topic.name}"
+    if topic.engine_hint == "chart":
+        line += ("（属命理之问：紫微命引擎为后续版本，本次以易经事引擎"
+                 "就当下之势作断，不论终身）")
+    return line
+
+
+def render_followup(result):
+    out = ["〔答〕" + result["answer"]]
+    for q in result.get("quotes", []):
+        out.append(f"    · [{q['cite_id']}] {q['text']}")
+    return "\n".join(out)
+
+
 def render_interpretation(result):
     out = ["── 解读（引文已逐字校验） " + "─" * 14]
     out.append("〔白话〕" + result["translation"])

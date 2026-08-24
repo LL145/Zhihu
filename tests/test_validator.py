@@ -1,6 +1,6 @@
 """引文校验器测试：幻觉闸门必须挡住不实引文与越界出处。"""
 
-from yijing_agent.validator import normalize, validate
+from yijing_agent.validator import normalize, validate, validate_followup
 
 ALLOWED = {
     "zhouyi:1:yao:4": "或跃在渊，无咎。",
@@ -59,3 +59,32 @@ def test_empty_quotes_rejected():
     r = _ok_result()
     r["quotes"] = []
     assert validate(r, ALLOWED) != []
+
+
+# ── 追问回答校验 ──────────────────────────────
+
+
+def test_followup_valid_with_quote():
+    r = {"answer": "回答 [zhouyi:1:yao:4]",
+         "quotes": [{"text": "或跃在渊", "cite_id": "zhouyi:1:yao:4"}]}
+    assert validate_followup(r, ALLOWED) == []
+
+
+def test_followup_empty_quotes_allowed():
+    r = {"answer": "此问须另占，本卦文本无从作答。", "quotes": []}
+    assert validate_followup(r, ALLOWED) == []
+
+
+def test_followup_fabricated_quote_rejected():
+    r = {"answer": "回答",
+         "quotes": [{"text": "潜龙勿用", "cite_id": "zhouyi:1:yao:4"}]}
+    assert any("原文不符" in e for e in validate_followup(r, ALLOWED))
+
+
+def test_followup_answer_cite_mark_checked():
+    r = {"answer": "回答 [tuan:99]", "quotes": []}
+    assert any("tuan:99" in e for e in validate_followup(r, ALLOWED))
+
+
+def test_followup_missing_answer_rejected():
+    assert validate_followup({"quotes": []}, ALLOWED) != []

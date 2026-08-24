@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pytest
 
-from yijing_agent import casting, llm, selection, verdict
+from yijing_agent import casting, llm, selection, topic, verdict
 from yijing_agent.knowledge import KnowledgeBase
 
 kb = KnowledgeBase()
@@ -99,3 +99,92 @@ def test_http_error_raises(monkeypatch):
     monkeypatch.setattr(llm.requests, "post", lambda *a, **k: _Err())
     with pytest.raises(llm.InterpreterError):
         llm.interpret(CFG, kb, "问事", cast, sel, vd)
+
+
+def test_topic_note_in_payload_and_marked_non_scripture(monkeypatch):
+    cast, sel, vd = _fixture()
+    tp = topic.classify("近期换一份工作是否合适")
+    seen = {}
+
+    def fake_post(*a, **k):
+        seen["payload"] = k["json"]["messages"][1]["content"]
+        return _Resp(json.dumps(_good_payload(), ensure_ascii=False))
+
+    monkeypatch.setattr(llm.requests, "post", fake_post)
+    llm.interpret(CFG, kb, "近期换一份工作是否合适", cast, sel, vd, tp)
+    assert "事业" in seen["payload"] and tp.note in seen["payload"]
+    assert "非典籍原文" in seen["payload"]
+
+
+# ── 多轮追问 ──────────────────────────────
+
+
+def _good_followup():
+    return {"answer": "追问回答。[zhouyi:49:yao:5]",
+            "quotes": [{"text": "未占有孚", "cite_id": "zhouyi:49:yao:5"}]}
+
+
+def test_followup_valid_passes(monkeypatch):
+    cast, sel, vd = _fixture()
+    seen = {}
+
+    def fake_post(*a, **k):
+        seen["messages"] = k["json"]["messages"]
+        return _Resp(json.dumps(_good_followup(), ensure_ascii=False))
+
+    monkeypatch.setattr(llm.requests, "post", fake_post)
+    result, attempts = llm.followup(CFG, kb, "问事", cast, sel, vd,
+                                    _good_payload(), [], "如果拖到年底再动呢")
+    assert attempts == 1 and result["answer"]
+    # 会话须含：原始解读（assistant）、追问规则、本轮追问
+    assert seen["messages"][2]["role"] == "assistant"
+    assert "追问回答的硬性规则" in seen["messages"][3]["content"]
+    assert "如果拖到年底再动呢" in seen["messages"][3]["content"]
+
+
+def test_followup_empty_quotes_ok(monkeypatch):
+    cast, sel, vd = _fixture()
+    resp = {"answer": "此问须另占，本卦文本无从作答。", "quotes": []}
+    monkeypatch.setattr(llm.requests, "post",
+                        lambda *a, **k: _Resp(json.dumps(resp, ensure_ascii=False)))
+    result, attempts = llm.followup(CFG, kb, "问事", cast, sel, vd,
+                                    _good_payload(), [], "另一件事如何")
+    assert attempts == 1
+
+
+def test_followup_fabricated_quote_retries(monkeypatch):
+    cast, sel, vd = _fixture()
+    bad = {"answer": "回答", "quotes": [{"text": "飞龙在天", "cite_id": "zhouyi:49:yao:5"}]}
+    responses = [json.dumps(bad, ensure_ascii=False),
+                 json.dumps(_good_followup(), ensure_ascii=False)]
+    calls = {"n": 0}
+
+    def fake_post(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            assert "原文不符" in k["json"]["messages"][-1]["content"]
+        return _Resp(responses[calls["n"] - 1])
+
+    monkeypatch.setattr(llm.requests, "post", fake_post)
+    result, attempts = llm.followup(CFG, kb, "问事", cast, sel, vd,
+                                    _good_payload(), [], "追问")
+    assert attempts == 2
+
+
+def test_followup_history_in_conversation(monkeypatch):
+    cast, sel, vd = _fixture()
+    seen = {}
+
+    def fake_post(*a, **k):
+        seen["messages"] = k["json"]["messages"]
+        return _Resp(json.dumps(_good_followup(), ensure_ascii=False))
+
+    monkeypatch.setattr(llm.requests, "post", fake_post)
+    history = [("上一轮追问", {"answer": "上一轮回答", "quotes": []})]
+    llm.followup(CFG, kb, "问事", cast, sel, vd, _good_payload(), history, "本轮追问")
+    contents = [m["content"] for m in seen["messages"]]
+    assert any("上一轮追问" in c for c in contents)
+    assert any("上一轮回答" in c for c in contents)
+    assert "本轮追问" in contents[-1]
+    # 追问规则只在首轮追问出现一次
+    assert sum("追问回答的硬性规则" in c for c in contents) == 1

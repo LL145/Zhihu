@@ -18,6 +18,28 @@ def normalize(text: str) -> str:
     return _CJK.sub("", text)
 
 
+def _check_quotes(quotes, allowed, errors):
+    for i, q in enumerate(quotes):
+        if not isinstance(q, dict) or "text" not in q or "cite_id" not in q:
+            errors.append(f"quotes[{i}] 须含 text 与 cite_id")
+            continue
+        cid = q["cite_id"]
+        if cid not in allowed:
+            errors.append(f"quotes[{i}] 的 cite_id 不在本次给定文本之内: {cid}")
+            continue
+        nq = normalize(q["text"])
+        if not nq:
+            errors.append(f"quotes[{i}] 引文为空")
+        elif nq not in normalize(allowed[cid]):
+            errors.append(f"quotes[{i}] 与 {cid} 原文不符（须逐字照抄）: {q['text']}")
+
+
+def _check_cite_marks(text, allowed, errors, where):
+    for cid in _CITE_MARK.findall(text):
+        if cid not in allowed:
+            errors.append(f"{where}中标注的 cite_id 不在本次给定文本之内: {cid}")
+
+
 def validate(result: dict, allowed: dict) -> list:
     """allowed: {cite_id: 原文}。返回错误列表，空列表为通过。"""
     errors = []
@@ -32,21 +54,21 @@ def validate(result: dict, allowed: dict) -> list:
     if not isinstance(result["advice"], list):
         return ["advice 须为数组"]
 
-    for i, q in enumerate(result["quotes"]):
-        if not isinstance(q, dict) or "text" not in q or "cite_id" not in q:
-            errors.append(f"quotes[{i}] 须含 text 与 cite_id")
-            continue
-        cid = q["cite_id"]
-        if cid not in allowed:
-            errors.append(f"quotes[{i}] 的 cite_id 不在本次给定文本之内: {cid}")
-            continue
-        nq = normalize(q["text"])
-        if not nq:
-            errors.append(f"quotes[{i}] 引文为空")
-        elif nq not in normalize(allowed[cid]):
-            errors.append(f"quotes[{i}] 与 {cid} 原文不符（须逐字照抄）: {q['text']}")
+    _check_quotes(result["quotes"], allowed, errors)
+    _check_cite_marks(result["interpretation"], allowed, errors, "解读")
+    return errors
 
-    for cid in _CITE_MARK.findall(result["interpretation"]):
-        if cid not in allowed:
-            errors.append(f"解读中标注的 cite_id 不在本次给定文本之内: {cid}")
+
+def validate_followup(result: dict, allowed: dict) -> list:
+    """追问回答的校验：answer 必填；quotes 须为数组但可为空（追问未必需引文）。"""
+    errors = []
+    if not isinstance(result.get("answer"), str) or not result.get("answer"):
+        errors.append("缺少字段或字段为空: answer")
+    if not isinstance(result.get("quotes"), list):
+        errors.append("quotes 须为数组（可为空数组）")
+    if errors:
+        return errors
+
+    _check_quotes(result["quotes"], allowed, errors)
+    _check_cite_marks(result["answer"], allowed, errors, "回答")
     return errors
