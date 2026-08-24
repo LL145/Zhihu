@@ -1,0 +1,93 @@
+# 知乎 · 算命 Agent
+
+有典可依、可复现的问事占断。设计文档见 [DESIGN.md](DESIGN.md)。
+
+**核心原则：LLM 不算卦，只解释。** 起卦、选文、断辞结论全部是确定性代码；
+大模型只负责把规则选定的《周易》原文讲清楚，其解读中的每条引文都经
+逐字校验后方可输出，校验不过即拒绝（降级为仅原文与结论）。
+
+当前为 v1（易经事引擎）。星盘命引擎（紫微斗数）为 v2，见设计文档。
+
+## 快速开始（Windows）
+
+需要 Python 3.9+（[python.org](https://www.python.org/downloads/) 安装时勾选
+"Add python.exe to PATH"）。在项目目录打开终端（PowerShell 或 cmd）：
+
+```powershell
+py -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+
+py -m yijing_agent -q "近期换一份工作是否合适"
+```
+
+若终端中文显示异常，先执行 `chcp 65001` 切换到 UTF-8。
+
+## 配置大模型解读（OpenRouter）
+
+不配置也能用（输出卦象、原文、结论，只是没有白话解读）。配置方法二选一：
+
+1. 复制 `config.example.json` 为 `config.json`，填入你的 OpenRouter API Key
+   （`config.json` 已在 .gitignore 中，不会被提交）；
+2. 或设置环境变量：`set OPENROUTER_API_KEY=sk-or-v1-...`（PowerShell 用
+   `$env:OPENROUTER_API_KEY="sk-or-v1-..."`）。
+
+默认模型为 `anthropic/claude-sonnet-4.5`，可在 `config.json` 的 `model`
+字段换成 OpenRouter 上的任意模型 ID。
+
+## 用法
+
+```powershell
+# 梅花易数·时间起卦（默认）：完全确定，同一时刻问同一事，任何人复算结果一致
+py -m yijing_agent -q "所问之事"
+
+# 铜钱法·六爻：随机种子公开（SHA-256），凭证可复现
+py -m yijing_agent -q "所问之事" --method coin
+
+# 指定起卦时刻（复现旧卦 / 测试用）
+py -m yijing_agent -q "所问之事" --when "2026-08-24 15:30"
+
+# 不调用大模型
+py -m yijing_agent -q "所问之事" --no-llm
+```
+
+输出包含：卦象（本卦、之卦、互卦、动爻）→ 所据经文（占法规则选定的原文，
+含彖、象传，逐条标出处）→ 断辞结论（吉/凶/谨/忌…，来自确定性映射）→
+大模型解读（引文逐字校验后输出）→ 起卦凭证（算式或种子，可自行复算）。
+
+## 项目结构
+
+```
+yijing_agent/
+  casting.py     起卦引擎：梅花易数时间起卦（无随机数）/ 铜钱法（种子公开）
+  selection.py   断卦规则：朱熹《易学启蒙》占法 + 《梅花易数》体用
+  verdict.py     断辞 → 结论映射（确定性；人工审定走 data/verdict_overrides.json）
+  knowledge.py   典籍知识库：结构化查表（64卦 + 彖传 + 象传，非向量检索）
+  llm.py         解读生成（OpenRouter，只解释、不改判）
+  validator.py   引文校验器：逐字比对，防幻觉闸门
+  redline.py     红线拦截：医疗/投资/法律/寿夭类问题拒答
+  lunar.py       公历→农历（cnlunar），流派约定显式标注
+  data/          知识库数据与校对说明（见 data/PROOFREADING.md）
+tools/
+  import_openiching.py   从 open-iching 仓库导入并校验典籍数据
+tests/           55 项测试：起卦确定性、占法七情形、断辞映射、引文校验、LLM 重试
+```
+
+## 测试
+
+```powershell
+pip install -r requirements-dev.txt
+py -m pytest tests/ -q
+```
+
+## 数据与校对
+
+典籍文本导入自 [john-walks-slow/open-iching](https://github.com/john-walks-slow/open-iching)
+（ISC 许可，经传原文为公版），导入时做了 64 卦 / 384 爻 / 彖象条数与爻画
+一致性的完整校验，**但尚未依通行本人工校对**——校对流程与状态见
+[yijing_agent/data/PROOFREADING.md](yijing_agent/data/PROOFREADING.md)。
+
+## 免责声明
+
+内容源自古代典籍原文及传统占法，属传统文化范畴，仅供参考，不构成任何
+现实决策依据。
