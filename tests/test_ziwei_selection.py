@@ -95,6 +95,56 @@ def test_fortune_verdict_three_cases():
     assert v_wei["cite_id"] == "ziwei:3:daxian"
 
 
+def test_detect_aspect():
+    assert selection.detect_aspect("我今年财运如何") == ("财帛", "财")
+    assert selection.detect_aspect("今年婚恋运势") == ("妻妾", "婚")
+    assert selection.detect_aspect("事业运怎么样")[0] == "官禄"
+    assert selection.detect_aspect("最近运气怎么样") == (None, "")
+
+
+def test_fortune_with_aspect(zkb, c2000):
+    # 问财运：大限主断之外加取财帛宫诸星断语；限势总论仍垫底
+    sel = selection.select_fortune(zkb, c2000, datetime(2026, 8, 24), "财帛")
+    aspect = [r for r in sel.readings if "所问之宫" in r.role]
+    assert aspect and all(r.cite_id.startswith("ziwei:2:gong:caibo:")
+                          for r in aspect)
+    assert any("财帛宫" in r.role for r in aspect)
+    assert any("题材宫只入解读，不另出结论" in n for n in sel.notes)
+    assert sel.readings[-1].role == "限势总论"
+    # 大限主断仍居首
+    assert sel.readings[0].cite_id == "ziwei:2:ming:jumen:xian"
+
+
+def test_destiny_with_aspect(zkb, c2000):
+    sel = selection.select_destiny(zkb, c2000, "官禄")
+    assert any(r.cite_id.startswith("ziwei:2:gong:guanlu:")
+               for r in sel.readings)
+    # 命宫主断仍在
+    assert sel.readings[0].cite_id == "ziwei:2:ming:taiyin"
+
+
+def test_select_context_for_event(zkb, c2000):
+    # 合参（§6.2）：问事业的具体事 → 官禄宫断语，仅作语境（无 primary）
+    from yijing_agent import topic
+    tp = topic.classify("近期换一份工作是否合适")
+    sel = selection.select_context(zkb, c2000, tp, "近期换一份工作是否合适")
+    assert sel.readings
+    assert all(not r.primary for r in sel.readings)
+    assert all(r.cite_id.startswith("ziwei:2:gong:guanlu:")
+               for r in sel.readings)
+    assert "不出第二结论" in sel.rule
+
+
+def test_select_context_fallback_ming(zkb, c2000):
+    # 无专属之宫的问事 → 命宫主星论断文作语境
+    from yijing_agent import topic
+    tp = topic.classify("明日天气如何")
+    sel = selection.select_context(zkb, c2000, tp, "明日天气如何")
+    assert sel.readings
+    assert sel.readings[0].cite_id == "ziwei:2:ming:taiyin"
+    assert all(not r.primary for r in sel.readings)
+
+
 def test_fortune_before_qixian(zkb):
     # 未及起限之岁（虚岁 < 局数）：以命宫论并标注
     c = chart.cast(datetime(2000, 9, 14, 12, 0), "男")   # 土五局 5 岁起限

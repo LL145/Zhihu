@@ -45,6 +45,15 @@ def test_fortune_is_chart():
     assert t.name == "时运" and t.engine_hint == "chart"
 
 
+def test_fortune_beats_domain_keywords():
+    # 问「×运/运势」即是问时运，纵带具体题材也走命理（题材由问事分宫处理）
+    assert topic.classify("今年事业运势如何").name == "时运"
+    assert topic.classify("我的财运怎么样").name == "时运"
+    assert topic.classify("今年桃花运如何").name == "时运"
+    # 无运字眼的具体事仍走事类
+    assert topic.classify("近期换一份工作是否合适").name == "事业"
+
+
 def test_unmatched_falls_to_other():
     t = topic.classify("明日天气如何")
     assert t.name == "其他" and t.matched == "" and t.engine_hint == "event"

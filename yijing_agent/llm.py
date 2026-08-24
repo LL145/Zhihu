@@ -27,7 +27,11 @@ _SYSTEM = """你是一名严谨的《周易》典籍讲解者。你会收到：�
 "这个结论落在用户所问之事上意味着什么、怎么做"。
 4. 解读须紧扣用户所问之事及其类别落点，落到可执行的层面；语气如实、克制，\
 不恐吓、不承诺、不故弄玄虚。
-5. 只输出一个 JSON 对象（不要 markdown 代码块、不要任何其他文字），字段：
+5. 若给出【合参语境】（依用户生辰紫微命盘选定的《紫微斗数全书》断语）：它只作\
+"人的语境"，仅可用于说明同一结论落在此人秉性禀赋上如何着力；不得据此加强、削弱\
+或反转结论，不得由它得出第二个吉凶，不得把命盘断语与卦爻经文混同。引用其原文\
+同样须逐字照抄并标注 cite_id。
+6. 只输出一个 JSON 对象（不要 markdown 代码块、不要任何其他文字），字段：
    - translation: 对主断经文的白话直译（字符串）
    - interpretation: 针对所问之事的解读，两至四段，每段末以 [cite_id] 标注该段依据（字符串）
    - advice: 具体建议，2 到 4 条（字符串数组）
@@ -64,7 +68,21 @@ def _allowed_texts(kb, selection):
     return allowed
 
 
-def _payload(question, cast, selection, verdict, allowed_texts, kb, topic=None):
+def _context_texts(context):
+    """合参语境（§6.2）：紫微断语纳入可引文本。context = (zkb, ChartSelection)。"""
+    if context is None:
+        return {}
+    zkb, sel = context
+    texts = {}
+    for r in sel.readings:
+        texts[r.cite_id] = zkb.citation(r.cite_id)["text"]
+        for cid in r.context_ids:
+            texts[cid] = zkb.citation(cid)["text"]
+    return texts
+
+
+def _payload(question, cast, selection, verdict, allowed_texts, kb, topic=None,
+             context=None):
     lines = [f"【所问之事】{question}", ""]
     if topic is not None:
         lines.append("【问事类别与解读落点】（占法指引，非典籍原文，不得作为引文）")
@@ -88,6 +106,15 @@ def _payload(question, cast, selection, verdict, allowed_texts, kb, topic=None):
                      "不得据以改动结论）")
         for cid, text in notes:
             lines.append(f"[{cid}] {kb.citation(cid)['source']}：{text}")
+    if context is not None and context[1].readings:
+        zkb, csel = context
+        lines.append("")
+        lines.append("【合参语境】（依用户生辰紫微命盘选定的断语，只作\"人的语境\"，"
+                     "不得据以改动结论，不得出第二个吉凶）")
+        for note in csel.notes:
+            lines.append(f"※ {note}")
+        for cid, text in _context_texts(context).items():
+            lines.append(f"[{cid}] {zkb.citation(cid)['source']}：{text}")
     lines.append("")
     lines.append(f"【结论（规则已定，不得更改）】{verdict['verdict']}——{verdict['action']}")
     lines.append(f"（结论依据主断经文 [{verdict['cite_id']}] 之断辞）")
@@ -143,26 +170,32 @@ def _attempt_loop(cfg, messages, allowed, check, max_attempts, timeout, fail_msg
 
 
 def interpret(cfg, kb, question, cast, selection, verdict, topic=None,
-              max_attempts=3, timeout=120):
-    """返回 (result, attempts)。校验三次不过抛 InterpreterError。"""
+              context=None, max_attempts=3, timeout=120):
+    """返回 (result, attempts)。校验三次不过抛 InterpreterError。
+
+    context: 合参语境 (ZiweiKB, ChartSelection)，可缺省（§6.2）。
+    """
     allowed = _allowed_texts(kb, selection)
     messages = [
         {"role": "system", "content": _SYSTEM},
         {"role": "user",
-         "content": _payload(question, cast, selection, verdict, allowed, kb, topic)},
+         "content": _payload(question, cast, selection, verdict, allowed, kb,
+                             topic, context)},
     ]
+    allowed = {**allowed, **_context_texts(context)}
     return _attempt_loop(cfg, messages, allowed, validate, max_attempts, timeout,
                          "解读三次未通过引文校验，已拒绝输出")
 
 
 def followup(cfg, kb, question, cast, selection, verdict, first_result,
-             history, ask, topic=None, max_attempts=3, timeout=120):
+             history, ask, topic=None, context=None, max_attempts=3, timeout=120):
     """就同一卦追问。history 为 [(往轮追问, 往轮回答 dict), ...]。返回 (result, attempts)。"""
     allowed = _allowed_texts(kb, selection)
     messages = [
         {"role": "system", "content": _SYSTEM},
         {"role": "user",
-         "content": _payload(question, cast, selection, verdict, allowed, kb, topic)},
+         "content": _payload(question, cast, selection, verdict, allowed, kb,
+                             topic, context)},
         {"role": "assistant", "content": json.dumps(first_result, ensure_ascii=False)},
     ]
     first = True
@@ -174,5 +207,6 @@ def followup(cfg, kb, question, cast, selection, verdict, first_result,
         first = False
     prefix = _FOLLOWUP_RULES + "\n\n" if first else ""
     messages.append({"role": "user", "content": f"{prefix}【追问】{ask}"})
+    allowed = {**allowed, **_context_texts(context)}
     return _attempt_loop(cfg, messages, allowed, validate_followup, max_attempts,
                          timeout, "追问回答三次未通过引文校验，已拒绝输出")

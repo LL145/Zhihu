@@ -72,7 +72,7 @@ class App(ttk.Frame):
 
         row2 = ttk.Frame(self)
         row2.pack(fill="x", pady=(6, 0))
-        ttk.Label(row2, text="生辰（公历；命格/时运类问题用，可留空）：").pack(side="left")
+        ttk.Label(row2, text="生辰（公历；命理类排盘、问事时合参用，可留空）：").pack(side="left")
         self.birth_y = ttk.Combobox(row2, values=_YEAR_CHOICES, width=6,
                                     state="readonly")
         self.birth_y.current(0)

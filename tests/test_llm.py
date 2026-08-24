@@ -116,6 +116,59 @@ def test_topic_note_in_payload_and_marked_non_scripture(monkeypatch):
     assert "非典籍原文" in seen["payload"]
 
 
+def test_hecan_context_in_payload_and_quotes_validate(monkeypatch):
+    # 合参（§6.2）：紫微断语进 payload 作语境，其引文过两库混合校验
+    from yijing_agent.ziwei import chart as zchart
+    from yijing_agent.ziwei import selection as zselection
+    from yijing_agent.ziwei.knowledge import ZiweiKB
+
+    cast, sel, vd = _fixture()
+    q = "近期换一份工作是否合适"
+    tp = topic.classify(q)
+    zkb = ZiweiKB()
+    csel = zselection.select_context(
+        zkb, zchart.cast(datetime(2000, 9, 14, 12, 0), "男"), tp, q)
+    cid = csel.readings[0].cite_id
+    ztext = zkb.citation(cid)["text"]
+
+    good = _good_payload()
+    good["quotes"].append({"text": ztext[:6], "cite_id": cid})
+    seen = {}
+
+    def fake_post(*a, **k):
+        seen["payload"] = k["json"]["messages"][1]["content"]
+        return _Resp(json.dumps(good, ensure_ascii=False))
+
+    monkeypatch.setattr(llm.requests, "post", fake_post)
+    result, attempts = llm.interpret(CFG, kb, q, cast, sel, vd, tp,
+                                     context=(zkb, csel))
+    assert attempts == 1
+    assert "【合参语境】" in seen["payload"] and cid in seen["payload"]
+    assert "不得据以改动结论" in seen["payload"]
+
+
+def test_hecan_fabricated_ziwei_quote_rejected(monkeypatch):
+    # 合参引文同样逐字校验：伪造的紫微断语不放行
+    from yijing_agent.ziwei import chart as zchart
+    from yijing_agent.ziwei import selection as zselection
+    from yijing_agent.ziwei.knowledge import ZiweiKB
+
+    cast, sel, vd = _fixture()
+    q = "近期换一份工作是否合适"
+    tp = topic.classify(q)
+    zkb = ZiweiKB()
+    csel = zselection.select_context(
+        zkb, zchart.cast(datetime(2000, 9, 14, 12, 0), "男"), tp, q)
+    cid = csel.readings[0].cite_id
+
+    bad = _good_payload()
+    bad["quotes"].append({"text": "紫微入官禄大富大贵", "cite_id": cid})
+    monkeypatch.setattr(llm.requests, "post",
+                        lambda *a, **k: _Resp(json.dumps(bad, ensure_ascii=False)))
+    with pytest.raises(llm.InterpreterError):
+        llm.interpret(CFG, kb, q, cast, sel, vd, tp, context=(zkb, csel))
+
+
 # ── 多轮追问 ──────────────────────────────
 
 

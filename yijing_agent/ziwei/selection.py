@@ -5,6 +5,10 @@
   入男/女命吉凶诀（按性别取）、诸星问答为语境；
 - 问时运 → 现行大限宫主星：入限吉凶诀为主断，《论大限十年祸福何如》
   为语境；
+- 问事分宫：问题落在具体题材（财、婚、业……）时，依关键词规则加取
+  所涉之宫诸星断语（《全书·卷二》十二宫），题材宫不另出结论；
+- 合参（DESIGN §6.2）：问具体事走事引擎时，命盘只以所涉之宫断语作
+  「人的语境」进入解读层，不产生第二个吉凶；
 - 宫无正曜依通行借对宫论（如实标注）。
 
 结论不由 LLM 发挥：
@@ -23,6 +27,35 @@ MALEFICS = ("擎羊", "陀罗", "火星", "铃星", "地空", "地劫")
 
 _GOOD = ("庙", "旺", "得地")
 _BAD = ("不得地", "落陷")
+
+#: 问事分宫：问题关键词 → 所涉之宫（顺序即优先级，第一个命中者胜）。
+#: 疾厄不设——健康类问题由红线拦截，不入占断。
+ASPECTS = (
+    ("妻妾", ("婚", "恋", "感情", "姻缘", "桃花", "对象", "配偶", "情感")),
+    ("官禄", ("事业", "工作", "职", "官运", "仕途", "功名", "学业", "考")),
+    ("财帛", ("财", "钱", "收入", "积蓄", "存款", "赚")),
+    ("田宅", ("房", "家宅", "田宅", "置业", "搬家", "迁居")),
+    ("迁移", ("出行", "远行", "出国", "外出", "迁徙")),
+    ("子女", ("子女", "孩子", "子嗣")),
+    ("奴仆", ("人际", "人缘", "朋友", "同事", "下属")),
+    ("兄弟", ("兄弟", "姐妹", "手足")),
+    ("父母", ("父母", "双亲")),
+    ("福德", ("福气", "福分", "福德", "晚年")),
+)
+
+#: 合参（§6.2）：事引擎问事类别 → 命盘所看之宫；未列者按关键词分宫，
+#: 再无则取命宫。
+TOPIC_PALACE = {"career": "官禄", "study": "官禄", "love": "妻妾",
+                "relation": "奴仆", "travel": "迁移", "dwelling": "田宅"}
+
+
+def detect_aspect(question):
+    """按关键词定所问之宫 → (宫名, 命中词)；未命中 → (None, "")。"""
+    for palace, keywords in ASPECTS:
+        for kw in keywords:
+            if kw in question:
+                return palace, kw
+    return None, ""
 
 
 @dataclass(frozen=True)
@@ -66,8 +99,41 @@ def _borrow(chart, palace):
     return chart.palace_of_branch(opp), True
 
 
-def select_destiny(zkb, chart):
-    """问命格：命宫主星断语。"""
+def _aspect_readings(zkb, chart, aspect, primary=True):
+    """所涉之宫诸星断语（《全书·卷二》十二宫）→ (readings, notes)。
+
+    宫总论只随首条断语作语境给一次；底本缺文如实标注。
+    """
+    p = chart.palace_named(aspect)
+    src, borrowed = _borrow(chart, p)
+    readings, notes = [], []
+    if borrowed:
+        notes.append(f"{_pname(p)}无正曜，借对宫主星论之（通行借宫法）")
+    zonglun = zkb.gong_zonglun(aspect)
+    ctx = (zonglun,) if zonglun else ()
+    for s in src.major():
+        cid = zkb.gong(aspect, s.name)
+        if cid is None:
+            notes.append(f"{s.name}入{_pname(p)}断语底本缺文，不取")
+            continue
+        b = s.brightness or "—"
+        readings.append(Reading(
+            role=f"所问之宫：{_pname(p)}（{p.branch}） {s.name}（{b}"
+                 + (f"，化{s.sihua}" if s.sihua else "") + "）"
+                 + ("〔借对宫〕" if borrowed else ""),
+            cite_id=cid, context_ids=ctx, primary=primary))
+        ctx = ()
+    if not readings and zonglun:
+        readings.append(Reading(
+            role=f"所问之宫：{_pname(p)}（{p.branch}）宫总论"
+                 + ("（本宫与对宫俱无正曜）" if borrowed and not src.major()
+                    else ""),
+            cite_id=zonglun, context_ids=(), primary=False))
+    return readings, notes
+
+
+def select_destiny(zkb, chart, aspect=None):
+    """问命格：命宫主星断语；问及具体题材时加取所涉之宫（问事分宫）。"""
     ming = chart.palaces[0]
     src, borrowed = _borrow(chart, ming)
     sel = ChartSelection(
@@ -95,11 +161,26 @@ def select_destiny(zkb, chart):
                  + (f"，化{s.sihua}" if s.sihua else "") + "）"
                  + ("〔借自迁移宫〕" if borrowed else ""),
             cite_id=zkb.ming(s.name), context_ids=tuple(ctx), primary=True))
+    _add_aspect(zkb, chart, sel, aspect)
     return sel
 
 
-def select_fortune(zkb, chart, at):
-    """问时运：现行大限宫主星入限诀 + 卷三大限论。"""
+def _add_aspect(zkb, chart, sel, aspect):
+    """问事分宫：加取所涉之宫断语。题材宫不另出结论（结论仍单源）。"""
+    if not aspect or aspect == "命宫":
+        return
+    readings, notes = _aspect_readings(zkb, chart, aspect)
+    if not readings:
+        return
+    sel.notes.append(f"所问涉{aspect}，加取{aspect}宫诸星断语"
+                     "（《全书·卷二》十二宫；题材宫只入解读，不另出结论）")
+    sel.notes.extend(notes)
+    sel.readings.extend(readings)
+
+
+def select_fortune(zkb, chart, at, aspect=None):
+    """问时运：现行大限宫主星入限诀 + 卷三大限论；问及具体题材时
+    加取所涉之宫（问事分宫）。"""
     p, age = chart.current_daxian(at)
     notes = []
     if p is None:
@@ -129,9 +210,48 @@ def select_fortune(zkb, chart, at):
                  + ("〔借对宫〕" if borrowed else ""),
             cite_id=zkb.ming_jue(s.name, "xian"),
             context_ids=tuple(ctx), primary=True))
+    _add_aspect(zkb, chart, sel, aspect)
     sel.readings.append(Reading(
         role="限势总论", cite_id=zkb.lun("daxian"),
         context_ids=(), primary=False))
+    return sel
+
+
+def select_context(zkb, chart, tp, question):
+    """合参语境（DESIGN §6.2）：问具体事走事引擎、且已有生辰时，
+    命盘只作「人的语境」进入解读层——不出第二个吉凶。
+
+    取与所问之事相应之宫的诸星断语（按事类映射，无则按关键词分宫）；
+    仍无则取命宫主星论断文。返回 ChartSelection，可为空 readings。
+    """
+    aspect = TOPIC_PALACE.get(tp.key) or detect_aspect(question)[0]
+    sel = ChartSelection(
+        rule="盘论人，仅作语境：命盘断语只说明君之秉性禀赋，"
+             "不出第二结论，吉凶仍依卦断",
+        palace_name=aspect or "命宫", branch=chart.palaces[0].branch)
+    sel.notes.append(f"依生辰命盘：命宫在{chart.ming_branch}，"
+                     f"{chart.wuxing_ju}，{chart.yinyang}")
+    if aspect:
+        readings, notes = _aspect_readings(zkb, chart, aspect, primary=False)
+        if readings:
+            sel.notes.append(f"所问属{tp.name}，取{aspect}宫诸星断语"
+                             "（《全书·卷二》十二宫）")
+            sel.notes.extend(notes)
+            sel.readings.extend(readings)
+            return sel
+    ming = chart.palaces[0]
+    src, borrowed = _borrow(chart, ming)
+    for s in src.major():
+        cid = zkb.ming(s.name)
+        if cid is None:
+            continue
+        b = s.brightness or "—"
+        sel.readings.append(Reading(
+            role=f"命宫主星 {s.name}（{b}）"
+                 + ("〔借自迁移宫〕" if borrowed else ""),
+            cite_id=cid, context_ids=(), primary=False))
+    if sel.readings:
+        sel.notes.append("所问无专属之宫，以命宫主星论断文作语境")
     return sel
 
 

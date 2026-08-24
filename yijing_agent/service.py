@@ -39,7 +39,7 @@ def prepare(question, *, method="time", when=None, salt="",
     when = when or lunar.now_beijing()
     if tp.engine_hint == "chart" and birth_dt is not None and gender:
         return ChartSession(question, tp, when, birth_dt, gender)
-    return EventSession(question, tp, when, method, salt)
+    return EventSession(question, tp, when, method, salt, birth_dt, gender)
 
 
 class _Session:
@@ -74,11 +74,12 @@ class _Session:
 
 
 class EventSession(_Session):
-    """易经事引擎会话。"""
+    """易经事引擎会话。带生辰时命盘作合参语境（§6.2），不出第二结论。"""
 
     kind = "event"
 
-    def __init__(self, question, tp, when, method, salt):
+    def __init__(self, question, tp, when, method, salt,
+                 birth_dt=None, gender=None):
         super().__init__(question, tp)
         self.kb = KnowledgeBase()
         if method == "time":
@@ -92,6 +93,13 @@ class EventSession(_Session):
         primary = self.sel.primary
         self.vd = verdict.decide(primary.cite_id,
                                  self.kb.citation(primary.cite_id)["text"])
+        self.context = None      # 合参语境 (ZiweiKB, ChartSelection)
+        if tp.engine_hint == "event" and birth_dt is not None and gender:
+            zkb = ZiweiKB()
+            csel = zselection.select_context(
+                zkb, zchart.cast(birth_dt, gender), tp, question)
+            if csel.readings:
+                self.context = (zkb, csel)
 
     def body_text(self):
         parts = [f"所问：{self.question}",
@@ -103,6 +111,8 @@ class EventSession(_Session):
         parts += ["", report.render_cast(self.kb, self.cast), "",
                   report.render_readings(self.kb, self.sel), "",
                   report.render_verdict(self.vd)]
+        if self.context is not None:
+            parts += ["", zreport.render_context(*self.context)]
         return "\n".join(parts)
 
     def repro_text(self):
@@ -110,11 +120,12 @@ class EventSession(_Session):
 
     def _interpret_call(self, cfg):
         return _interpret(cfg, self.kb, self.question, self.cast, self.sel,
-                          self.vd, self.tp)
+                          self.vd, self.tp, self.context)
 
     def _followup_call(self, cfg, ask):
         return _followup(cfg, self.kb, self.question, self.cast, self.sel,
-                         self.vd, self.first_result, self.history, ask, self.tp)
+                         self.vd, self.first_result, self.history, ask, self.tp,
+                         self.context)
 
 
 class ChartSession(_Session):
@@ -126,11 +137,13 @@ class ChartSession(_Session):
         super().__init__(question, tp)
         self.zkb = ZiweiKB()
         self.chart = zchart.cast(birth_dt, gender)
+        aspect = zselection.detect_aspect(question)[0]   # 问事分宫
         if tp.key == "fortune":
-            self.sel = zselection.select_fortune(self.zkb, self.chart, when)
+            self.sel = zselection.select_fortune(self.zkb, self.chart, when,
+                                                 aspect)
             self.vd = zselection.decide_fortune(self.chart, when)
         else:
-            self.sel = zselection.select_destiny(self.zkb, self.chart)
+            self.sel = zselection.select_destiny(self.zkb, self.chart, aspect)
             self.vd = zselection.decide_destiny(self.chart)
 
     def body_text(self):

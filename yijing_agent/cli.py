@@ -147,11 +147,12 @@ def _run_chart(question, tp, when, birth_dt, gender, no_llm):
     """命引擎路径：排盘 → 规则选文 → 确定性结论 → LLM 解读。"""
     c = zchart.cast(birth_dt, gender)
     zkb = ZiweiKB()
+    aspect = zselection.detect_aspect(question)[0]   # 问事分宫
     if tp.key == "fortune":
-        sel = zselection.select_fortune(zkb, c, when)
+        sel = zselection.select_fortune(zkb, c, when, aspect)
         vd = zselection.decide_fortune(c, when)
     else:
-        sel = zselection.select_destiny(zkb, c)
+        sel = zselection.select_destiny(zkb, c, aspect)
         vd = zselection.decide_destiny(c)
 
     print()
@@ -190,7 +191,8 @@ def main(argv=None):
     p.add_argument("--when", help="指定起卦/论限时刻 YYYY-MM-DD HH:MM，按北京时间"
                                   "（默认取当前时刻并自动换算为北京时间；用于复现）")
     p.add_argument("--salt", default="", help="铜钱法附加盐（同刻同问再占时区分用）")
-    p.add_argument("--birth", help="出生日期（公历 YYYY-MM-DD，命理类问题用，紫微排盘）")
+    p.add_argument("--birth", help="出生日期（公历 YYYY-MM-DD）：命理类问题走紫微排盘；"
+                                   "问具体事时命盘作合参语境（不改卦断）")
     p.add_argument("--birth-time", help="出生时辰（时辰名如「午」，或钟点如 11:30；缺则无法排盘）")
     p.add_argument("--gender", choices=["男", "女"], help="性别（大限顺逆用）")
     p.add_argument("--no-llm", action="store_true", help="不调用大模型，仅输出原文与结论")
@@ -238,6 +240,17 @@ def main(argv=None):
     primary = sel.primary
     vd = verdict.decide(primary.cite_id, kb.citation(primary.cite_id)["text"])
 
+    # 合参（§6.2）：问具体事且已附生辰 → 命盘只作语境，不出第二结论
+    context = None
+    if tp.engine_hint == "event":
+        birth = _resolve_birth(args, allow_prompt=False)
+        if birth:
+            zkb = ZiweiKB()
+            csel = zselection.select_context(
+                zkb, zchart.cast(birth[0], birth[1]), tp, question)
+            if csel.readings:
+                context = (zkb, csel)
+
     print()
     print(f"所问：{question}")
     print("引擎：易经事引擎（卦断事）")
@@ -251,15 +264,18 @@ def main(argv=None):
     print(report.render_readings(kb, sel))
     print()
     print(report.render_verdict(vd))
+    if context is not None:
+        print()
+        print(zreport.render_context(*context))
     print()
 
     cfg = config.load()
     if not args.no_llm:
         _llm_block(
             cfg,
-            lambda: interpret(cfg, kb, question, cast, sel, vd, tp),
+            lambda: interpret(cfg, kb, question, cast, sel, vd, tp, context),
             lambda first, h, a: followup(
-                cfg, kb, question, cast, sel, vd, first, h, a, tp))
+                cfg, kb, question, cast, sel, vd, first, h, a, tp, context))
     print()
     print(report.render_repro(cast))
     print()

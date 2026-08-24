@@ -37,11 +37,45 @@ def test_chart_topic_without_birth_falls_back():
     assert "欲以紫微命盘作答" in s.body_text()
 
 
-def test_event_topic_ignores_birth():
-    # 卦断事：问具体事即便给了生辰也走事引擎
+def test_event_topic_with_birth_gets_hecan_context():
+    # 卦断事：问具体事即便给了生辰也走事引擎——命盘只作合参语境（§6.2）
     s = service.prepare("近期换工作是否合适", when=WHEN,
                         birth_dt=BIRTH, gender="男")
     assert isinstance(s, service.EventSession)
+    assert s.context is not None
+    body = s.body_text()
+    assert "合参语境" in body and "官禄宫" in body
+    assert "不出第二结论" in body
+
+
+def test_event_without_birth_has_no_context():
+    s = service.prepare("近期换工作是否合适", when=WHEN)
+    assert s.context is None
+    assert "合参语境" not in s.body_text()
+
+
+def test_hecan_context_wired_into_llm(monkeypatch):
+    s = service.prepare("近期换工作是否合适", when=WHEN,
+                        birth_dt=BIRTH, gender="男")
+    seen = {}
+
+    def fake_interpret(cfg, kb, question, cast, sel, vd, tp, context=None,
+                       **kw):
+        seen["context"] = context
+        return {"translation": "白", "interpretation": "解",
+                "advice": ["议"], "quotes": []}, 1
+
+    monkeypatch.setattr(service, "_interpret", fake_interpret)
+    s.interpret({"model": "m"})
+    assert seen["context"] is s.context and s.context is not None
+
+
+def test_chart_fortune_aspect_palace():
+    # 问财运：命引擎加取财帛宫断语（问事分宫）
+    s = service.prepare("我今年财运如何", when=WHEN, birth_dt=BIRTH, gender="男")
+    assert isinstance(s, service.ChartSession)
+    body = s.body_text()
+    assert "所问之宫：财帛宫" in body
 
 
 def test_refusal_and_empty():
