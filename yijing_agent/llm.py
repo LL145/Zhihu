@@ -3,48 +3,58 @@
 生成结果须通过 validator 的逐字引文校验；三次不过则抛出 InterpreterError，
 调用方降级为「仅原文 + 结论」的无解读模式。
 
+多占法并用（ALGORITHM.md 五）：主断侧文本立断，语境侧文本（姓名卦、
+紫微盘等）以 ContextBlock 传入，只作"人的语境"，校验器保证断语所据
+落在主断侧——吉凶只有一个出处。
+
 多轮追问（followup）不重新起卦：同一份【所据文本】、同一 verdict，
 每轮回答同样过校验闸门。
 """
 
 import json
+from collections import namedtuple
 
 import requests
 
 from .validator import validate, validate_followup
 
+#: 语境块：title 如「姓名卦（论问者之位）」；notes 为说明行；
+#: items 为 [(cite_id, 出处名, 原文)]。语境文本可引不可断。
+ContextBlock = namedtuple("ContextBlock", "title notes items")
+
 _SYSTEM = """你是一名依《周易》行占的占者。起卦、占法选文皆循古法定例由程序完成；\
-断与释，由你任之。你会收到：用户所问之事、起卦结果、依朱子占法选定的经文原文\
+断与释，由你任之。你会收到：用户所问之事、起卦结果、依古法定例选定的经文原文\
 （各有 cite_id 编号）、以及自经文断辞字样机取的定例断辞（你的对照基准）。
 
 硬性规则：
-1. 只可依据【所据文本】与【注疏】中给出的原文行断与解读，不得引入其中没有的任何\
-"典籍内容"或古语。【问事类别与解读落点】是占法指引而非典籍原文，只用于确定方向，\
-不得当作原文引用。注疏是后人（王弼）对经文的解释：引用时须标其 cite_id 并表明是\
-注家之言，不得与经文混同。《文言》《说卦》为孔门传文，属经传原文可引；体用取象\
-（说卦）只作解读取象之资，占断所标之据须含卦爻辞、彖象或文言之文——注家之言与\
-取象皆不得单独立断。
-2. 引文必须逐字照抄【所据文本】的文字，并标注其 cite_id。
+1. 只可依据【所据文本】【注疏】与【语境】中给出的原文行断与解读，不得引入其中没有\
+的任何"典籍内容"或古语。【问事类别与解读落点】是占法指引而非典籍原文，只用于确定\
+方向，不得当作原文引用。注疏是后人（王弼）对经文的解释：引用时须标其 cite_id 并\
+表明是注家之言，不得与经文混同。《文言》《说卦》为孔门传文，属经传原文可引；体用\
+取象（说卦）只作解读取象之资。
+2. 引文必须逐字照抄给定原文的文字，并标注其 cite_id。
 3. 断由你任之（judgment 字段）：如古之占者，衡所据经文之辞、动爻之位与卦时之义，\
 就用户所问下占断——一至两句，明言吉凶宜忌之倾向（用传统断辞字汇：吉、凶、悔、吝、\
-厉、无咎、宜、不宜等，不得模棱两可），句末以 [cite_id] 标注所据。【定例断辞】是\
-经文断辞字样的机械提取，作你的对照基准：从之，则说明其所以然；异断，则必须明言\
-所据之文与其理（如爻位、卦时、问者所处），无据不得异断。
+厉、无咎、宜、不宜等，不得模棱两可），句末以 [cite_id] 标注所据。断语所据必须落在\
+【所据文本】的卦爻辞、彖象或文言之文上——【语境】文本、注家之言与取象皆不得单独\
+立断。【定例断辞】是经文断辞字样的机械提取，作你的对照基准：从之，则说明其所以然；\
+异断，则必须明言所据之文与其理（如爻位、卦时、问者所处），无据不得异断。
 4. 断语与解读不得软化辞气以媚问者——不得把「凶」说成「略有不顺」；紧扣用户所问\
 之事及其类别落点，落到可执行的层面；语气如实、克制，不恐吓、不承诺、不故弄玄虚。
-5. 若给出【合参语境】（依用户生辰紫微命盘选定的《紫微斗数全书》断语）：它只作\
-"人的语境"，仅可用于说明占断落在此人秉性禀赋上如何着力；不得据此加强、削弱\
-或反转占断，不得由它得出第二个吉凶，不得把命盘断语与卦爻经文混同。引用其原文\
-同样须逐字照抄并标注 cite_id。
+5. 各【语境】块（姓名卦、紫微命盘断语等）只作"人的语境"：仅可用于说明占断落在\
+此人之位、秉性禀赋上如何着力；不得据此加强、削弱或反转占断，不得由它得出第二个\
+吉凶，不得把语境文本与主断经文混同。引用其原文同样须逐字照抄并标注 cite_id。
 6. 只输出一个 JSON 对象（不要 markdown 代码块、不要任何其他文字），字段：
-   - translation: 对主断经文的白话直译（字符串）
-   - judgment: 占断，一至两句，句末以 [cite_id] 标注所据（字符串）
-   - interpretation: 针对所问之事的解读，两至四段，每段末以 [cite_id] 标注该段依据（字符串）
+   - conclusion: 白话结论，一至两句，直接回答用户所问——开门见山，纯白话，
+     不用古文字汇，不带 [cite_id] 标注（字符串）
+   - judgment: 传统断语，一至两句，句末以 [cite_id] 标注所据（字符串）
+   - reasons: 解释理由，两至四段：引用古籍原文（逐字）并用白话解释其义、
+     说明为何得出上述结论，每段末以 [cite_id] 标注该段依据（字符串）
    - advice: 具体建议，2 到 4 条（字符串数组）
    - quotes: 你实际引用的原文句子，数组，每项 {"text": 逐字原文, "cite_id": 出处编号}"""
 
 _FOLLOWUP_RULES = """解读已完成，用户将就本卦继续追问。追问回答的硬性规则：
-1. 不重新起卦：仍只可依据前述【所据文本】的原文作答；占断已下，不得于追问中\
+1. 不重新起卦：仍只可依据前述给定的原文作答；占断已下，不得于追问中\
 变更或软化。
 2. 引用原文须逐字照抄并标注 cite_id；追问不必强行引经，无合适原文可不引。
 3. 追问若超出本卦所据文本可答的范围（另问一事、追问具体祸福细节、要求预言事实结果），\
@@ -78,21 +88,29 @@ def _allowed_texts(kb, selection):
     return allowed
 
 
-def _context_texts(context):
-    """合参语境（§6.2）：紫微断语纳入可引文本。context = (zkb, ChartSelection)。"""
-    if context is None:
-        return {}
-    zkb, sel = context
+def context_texts(contexts):
+    """全部语境块的 {cite_id: 原文}——纳入可引集合（可引不可断）。"""
     texts = {}
-    for r in sel.readings:
-        texts[r.cite_id] = zkb.citation(r.cite_id)["text"]
-        for cid in r.context_ids:
-            texts[cid] = zkb.citation(cid)["text"]
+    for blk in contexts or ():
+        for cid, _source, text in blk.items:
+            texts[cid] = text
     return texts
 
 
+def render_context_blocks(lines, contexts):
+    """把语境块渲染进 payload（事引擎与命引擎共用）。"""
+    for blk in contexts or ():
+        lines.append("")
+        lines.append(f"【语境·{blk.title}】（只作\"人的语境\"，不得据以改动"
+                     "结论，不得出第二个吉凶）")
+        for note in blk.notes:
+            lines.append(f"※ {note}")
+        for cid, source, text in blk.items:
+            lines.append(f"[{cid}] {source}：{text}")
+
+
 def _payload(question, cast, selection, verdict, allowed_texts, kb, topic=None,
-             context=None):
+             contexts=()):
     lines = [f"【所问之事】{question}", ""]
     if topic is not None:
         lines.append("【问事类别与解读落点】（占法指引，非典籍原文，不得作为引文）")
@@ -104,7 +122,7 @@ def _payload(question, cast, selection, verdict, allowed_texts, kb, topic=None,
     lines.append("")
     lines.append(f"【占法】{selection.rule}")
     lines.append("")
-    lines.append("【所据文本】（解读只可使用以下原文）")
+    lines.append("【所据文本】（断语所据必须落在以下经传原文上）")
     for cid, text in allowed_texts.items():
         if not cid.startswith("wangbi:"):
             lines.append(f"[{cid}] {kb.citation(cid)['source']}：{text}")
@@ -116,15 +134,7 @@ def _payload(question, cast, selection, verdict, allowed_texts, kb, topic=None,
                      "不得据以改动结论）")
         for cid, text in notes:
             lines.append(f"[{cid}] {kb.citation(cid)['source']}：{text}")
-    if context is not None and context[1].readings:
-        zkb, csel = context
-        lines.append("")
-        lines.append("【合参语境】（依用户生辰紫微命盘选定的断语，只作\"人的语境\"，"
-                     "不得据以改动结论，不得出第二个吉凶）")
-        for note in csel.notes:
-            lines.append(f"※ {note}")
-        for cid, text in _context_texts(context).items():
-            lines.append(f"[{cid}] {zkb.citation(cid)['source']}：{text}")
+    render_context_blocks(lines, contexts)
     lines.append("")
     lines.append(f"【定例断辞（机断，占断之对照基准）】{verdict['verdict']}——{verdict['action']}")
     lines.append(f"（其据：主断经文 [{verdict['cite_id']}] 之断辞字样。"
@@ -205,32 +215,34 @@ def classify_topic(cfg, question, timeout=30):
 
 
 def interpret(cfg, kb, question, cast, selection, verdict, topic=None,
-              context=None, max_attempts=3, timeout=120):
+              contexts=(), max_attempts=3, timeout=120):
     """返回 (result, attempts)。校验三次不过抛 InterpreterError。
 
-    context: 合参语境 (ZiweiKB, ChartSelection)，可缺省（§6.2）。
+    contexts: 语境块序列（ContextBlock），可引不可断（ALGORITHM.md 五）。
     """
     allowed = _allowed_texts(kb, selection)
     messages = [
         {"role": "system", "content": _SYSTEM},
         {"role": "user",
          "content": _payload(question, cast, selection, verdict, allowed, kb,
-                             topic, context)},
+                             topic, contexts)},
     ]
-    allowed = {**allowed, **_context_texts(context)}
-    return _attempt_loop(cfg, messages, allowed, validate, max_attempts, timeout,
+    primary = frozenset(allowed)
+    allowed = {**allowed, **context_texts(contexts)}
+    check = lambda r, a: validate(r, a, primary)   # noqa: E731
+    return _attempt_loop(cfg, messages, allowed, check, max_attempts, timeout,
                          "解读三次未通过引文校验，已拒绝输出")
 
 
 def followup(cfg, kb, question, cast, selection, verdict, first_result,
-             history, ask, topic=None, context=None, max_attempts=3, timeout=120):
+             history, ask, topic=None, contexts=(), max_attempts=3, timeout=120):
     """就同一卦追问。history 为 [(往轮追问, 往轮回答 dict), ...]。返回 (result, attempts)。"""
     allowed = _allowed_texts(kb, selection)
     messages = [
         {"role": "system", "content": _SYSTEM},
         {"role": "user",
          "content": _payload(question, cast, selection, verdict, allowed, kb,
-                             topic, context)},
+                             topic, contexts)},
         {"role": "assistant", "content": json.dumps(first_result, ensure_ascii=False)},
     ]
     first = True
@@ -242,6 +254,6 @@ def followup(cfg, kb, question, cast, selection, verdict, first_result,
         first = False
     prefix = _FOLLOWUP_RULES + "\n\n" if first else ""
     messages.append({"role": "user", "content": f"{prefix}【追问】{ask}"})
-    allowed = {**allowed, **_context_texts(context)}
+    allowed = {**allowed, **context_texts(contexts)}
     return _attempt_loop(cfg, messages, allowed, validate_followup, max_attempts,
                          timeout, "追问回答三次未通过引文校验，已拒绝输出")

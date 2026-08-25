@@ -72,8 +72,8 @@ def test_zhuzi_method_attaches_no_meihua():
                    for r in sel.readings)
 
 
-def test_service_event_body_shows_jue():
-    s = service.prepare("近期换一份工作是否合适", method="time")
-    body = s.body_text()
-    assert "体用总诀" in body and "求谋占" in body
+def test_service_event_evidence_shows_jue():
+    s = service.prepare("近期换一份工作是否合适")
+    ev = s.evidence_text()
+    assert "体用总诀" in ev and "求谋占" in ev
     assert "为用、" in s.sel.rule            # 体用之分进了占法标注

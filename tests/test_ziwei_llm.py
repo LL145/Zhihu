@@ -47,9 +47,9 @@ def test_quote_validation_pass(env):
     zkb, c, sel, vd = env
     allowed = zllm._allowed_texts(zkb, sel)
     result = {
-        "translation": "白话",
+        "conclusion": "这十年顺逆参半，逐件事谨慎推进为宜。",
         "judgment": "此限成败不一，宜谨。[ziwei:3:daxian]",
-        "interpretation": "解读段落 [ziwei:3:daxian]",
+        "reasons": "解读段落 [ziwei:3:daxian]",
         "advice": ["建议一", "建议二"],
         "quotes": [{"text": "巨门主限化权星，最喜求谋万事成",
                     "cite_id": "ziwei:2:ming:jumen:xian"}],
@@ -61,9 +61,9 @@ def test_quote_validation_rejects_fabrication(env):
     zkb, c, sel, vd = env
     allowed = zllm._allowed_texts(zkb, sel)
     bad = {
-        "translation": "白话",
+        "conclusion": "白话结论。",
         "judgment": "此限宜谨。[ziwei:3:daxian]",
-        "interpretation": "解读 [ziwei:3:daxian]",
+        "reasons": "解读 [ziwei:3:daxian]",
         "advice": ["建议"],
         "quotes": [{"text": "巨门守财帛必大富", "cite_id": "ziwei:2:ming:jumen:xian"}],
     }
@@ -81,7 +81,7 @@ def test_followup_messages(env, monkeypatch):
         return {"answer": "答", "quotes": []}, 1
 
     monkeypatch.setattr(zllm, "_attempt_loop", fake_loop)
-    first = {"translation": "t", "interpretation": "i", "advice": ["a"],
+    first = {"conclusion": "c", "reasons": "r", "advice": ["a"],
              "quotes": []}
     zllm.followup_chart({}, zkb, "问", c, sel, vd, first,
                         [("前问", {"answer": "前答", "quotes": []})], "新问")

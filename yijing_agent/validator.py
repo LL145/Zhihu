@@ -1,9 +1,12 @@
 """引文校验器：LLM 输出展示前的最后一道确定性闸门。
 
 - 每条引文去标点后须逐字包含于其所标 cite_id 的原文之中；
-- 占断（judgment）必须以 [cite_id] 标注所据——无据不断；
-- 占断所据须含卦爻经传之文（王弼注、说卦取象不得单独立断）；
-- 解读中方括号标注的 cite_id 须属于本次给定的文本集合；
+- 断语（judgment）必须以 [cite_id] 标注所据——无据不断；
+- 断语所据须落在主断侧文本（primary 集合）上，且须含经传之文
+  （王弼注、说卦取象不得单独立断）——语境侧文本不得立断，
+  结构上保证多占法并用而吉凶只有一个出处（ALGORITHM.md 五）；
+- 理由（reasons）中方括号标注的 cite_id 须属于本次给定的文本集合；
+- 白话结论（conclusion）须为纯白话：不得夹带 [cite_id] 标注；
 - 必填字段齐全。任何一条不过即拒绝本次输出。
 """
 
@@ -12,8 +15,10 @@ import re
 _CJK = re.compile(r"[^㐀-鿿]")
 _CITE_MARK = re.compile(r"\[([a-z]+:[0-9]+(?::[a-z0-9]+)*)\]")
 
-REQUIRED_FIELDS = ("translation", "judgment", "interpretation", "advice",
-                   "quotes")
+REQUIRED_FIELDS = ("conclusion", "judgment", "reasons", "advice", "quotes")
+
+#: 不得单独立断的文本前缀（注家之言与取象之资）
+_NO_STANDALONE = ("wangbi", "shuogua")
 
 
 def normalize(text: str) -> str:
@@ -43,8 +48,9 @@ def _check_cite_marks(text, allowed, errors, where):
             errors.append(f"{where}中标注的 cite_id 不在本次给定文本之内: {cid}")
 
 
-def validate(result: dict, allowed: dict) -> list:
-    """allowed: {cite_id: 原文}。返回错误列表，空列表为通过。"""
+def validate(result: dict, allowed: dict, primary=None) -> list:
+    """allowed: {cite_id: 原文}；primary: 主断侧 cite_id 集合（None 视同
+    全部 allowed）。返回错误列表，空列表为通过。"""
     errors = []
     for f in REQUIRED_FIELDS:
         if f not in result or not result[f]:
@@ -56,15 +62,21 @@ def validate(result: dict, allowed: dict) -> list:
         return ["quotes 须为非空数组"]
     if not isinstance(result["advice"], list):
         return ["advice 须为数组"]
+    if _CITE_MARK.search(result["conclusion"]):
+        errors.append("白话结论（conclusion）须为纯白话，不得夹带 [cite_id] 标注")
 
     _check_quotes(result["quotes"], allowed, errors)
     marks = _CITE_MARK.findall(result["judgment"])
     if not marks:
-        errors.append("占断（judgment）必须以 [cite_id] 标注所据原文——无据不断")
-    elif all(m.split(":")[0] in ("wangbi", "shuogua") for m in marks):
-        errors.append("占断所据须含卦爻经传之文——王弼注与说卦取象不得单独立断")
-    _check_cite_marks(result["judgment"], allowed, errors, "占断")
-    _check_cite_marks(result["interpretation"], allowed, errors, "解读")
+        errors.append("断语（judgment）必须以 [cite_id] 标注所据原文——无据不断")
+    else:
+        pool = allowed if primary is None else primary
+        if not any(m in pool and m.split(":")[0] not in _NO_STANDALONE
+                   for m in marks):
+            errors.append("断语所据须落在主断侧经传原文上——语境侧文本、"
+                          "王弼注与说卦取象皆不得单独立断")
+    _check_cite_marks(result["judgment"], allowed, errors, "断语")
+    _check_cite_marks(result["reasons"], allowed, errors, "理由")
     return errors
 
 

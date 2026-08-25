@@ -86,30 +86,22 @@ def render_chart(chart):
     return "\n".join(out)
 
 
-def _reading_lines(zkb, sel):
-    out = []
+def render_readings_compact(zkb, sel):
+    """所据断语节选：主断条目附全文，其余只列出处与编号（全文见 corpus）。"""
+    out = [f"── 所据断语（{sel.rule}；节选，全文见 corpus） " + "─" * 4]
     for note in sel.notes:
         out.append(f"  ※ {note}")
     for r in sel.readings:
         c = zkb.citation(r.cite_id)
-        star = "◆" if r.primary else "◇"
-        out.append(f"  {star} {r.role}")
-        out.append(f"    {c['source']}：{c['text']}")
-        for cid in r.context_ids:
-            ctx = zkb.citation(cid)
-            out.append(f"      · {ctx['source']}：{ctx['text']}")
-    return out
-
-
-def render_readings(zkb, sel):
-    return "\n".join([f"── 所据断语（{sel.rule}） " + "─" * 4]
-                     + _reading_lines(zkb, sel))
-
-
-def render_context(zkb, sel):
-    """合参语境（DESIGN §6.2）：命盘断语只作语境，不出第二结论。"""
-    return "\n".join([f"── 合参语境（{sel.rule}） " + "─" * 4]
-                     + _reading_lines(zkb, sel))
+        if r.primary:
+            out.append(f"  ◆ {r.role}")
+            out.append(f"    {c['source']}：{c['text']}")
+            for cid in r.context_ids:
+                ctx = zkb.citation(cid)
+                out.append(f"      · {ctx['source']}［{cid}］")
+        else:
+            out.append(f"  ◇ {r.role}［{r.cite_id}］{c['source']}")
+    return "\n".join(out)
 
 
 def render_repro(chart):

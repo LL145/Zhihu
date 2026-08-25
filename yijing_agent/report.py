@@ -1,4 +1,5 @@
-"""终端呈现层：卦象图、所据经文、结论、解读、复现凭证与免责声明。"""
+"""终端呈现层：结论先行（ALGORITHM.md 六），卦象图、所据原文节选、
+复现凭证与免责声明。"""
 
 DISCLAIMER = ("内容源自古代典籍原文及传统占法，属传统文化范畴，仅供参考，"
               "不构成任何现实决策依据。")
@@ -44,22 +45,23 @@ def render_repro(cast):
     return "\n".join(out)
 
 
-def render_readings(kb, selection):
-    out = [f"── 所据经文（{selection.rule}） " + "─" * 10]
+def render_readings_compact(kb, selection):
+    """所据原文节选：主断条目附全文（含所系传文），其余只列出处与编号；
+    全文可用 python -m yijing_agent.corpus --cite <编号> 随时核对。"""
+    out = [f"── 所据原文（{selection.rule}；节选，全文见 corpus） " + "─" * 4]
+    notes = getattr(selection, "notes", None) or ()
+    for note in notes:
+        out.append(f"  ※ {note}")
     for r in selection.readings:
         c = kb.citation(r.cite_id)
-        star = "◆" if r.primary else "◇"
-        out.append(f"  {star} {r.role}")
-        out.append(f"    {c['source']}：{c['text']}")
-        note = kb.commentary(r.cite_id)
-        if note:
-            out.append(f"      〔王弼注〕{note['text']}")
-        wy = kb.wenyan(r.cite_id)
-        if wy:
-            out.append(f"      〔文言〕{wy['text']}")
-        for cid in r.context_ids:
-            ctx = kb.citation(cid)
-            out.append(f"      · {ctx['source']}：{ctx['text']}")
+        if r.primary:
+            out.append(f"  ◆ {r.role}")
+            out.append(f"    {c['source']}：{c['text']}")
+            for cid in r.context_ids:
+                ctx = kb.citation(cid)
+                out.append(f"      · {ctx['source']}：{ctx['text']}")
+        else:
+            out.append(f"  ◇ {r.role}［{r.cite_id}］{c['source']}")
     return "\n".join(out)
 
 
@@ -78,14 +80,6 @@ def topic_source_label(topic):
     return _TOPIC_SOURCE.get(getattr(topic, "source", "rule"), "")
 
 
-def render_topic(topic):
-    line = f"类别：{topic.name}{topic_source_label(topic)}"
-    if topic.engine_hint == "chart":
-        line += ("（属命理之问：未提供生辰，本次以易经事引擎"
-                 "就当下之势作断，不论终身）")
-    return line
-
-
 def render_followup(result):
     out = ["〔答〕" + result["answer"]]
     for q in result.get("quotes", []):
@@ -94,14 +88,15 @@ def render_followup(result):
 
 
 def render_interpretation(result):
-    out = ["── 占断与讲释（占者：大模型；引文已逐字校验） " + "─" * 6]
-    out.append("〔占断〕" + result["judgment"])
+    """结论先行（ALGORITHM.md 六）：白话结论 → 断语 → 理由 → 建议。"""
+    out = ["【结论】" + result["conclusion"]]
     out.append("")
-    out.append("〔白话〕" + result["translation"])
+    out.append("【断语】" + result["judgment"])
     out.append("")
-    out.append(result["interpretation"])
+    out.append("【理由】（占者：大模型；引文已逐字校验）")
+    out.append(result["reasons"])
     out.append("")
-    out.append("〔建议〕")
+    out.append("【建议】")
     for i, a in enumerate(result["advice"], 1):
         out.append(f"  {i}. {a}")
     return "\n".join(out)

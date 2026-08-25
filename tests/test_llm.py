@@ -23,9 +23,9 @@ def _fixture():
 def _good_payload():
     # 革九五「大人虎变，未占有孚。」
     return {
-        "translation": "白话直译",
+        "conclusion": "此事可以放手去做，变革之势对你有利。",
         "judgment": "宜进，其变可孚。[zhouyi:49:yao:5]",
-        "interpretation": "解读段落。[zhouyi:49:yao:5]",
+        "reasons": "解读段落。[zhouyi:49:yao:5]",
         "advice": ["建议一", "建议二"],
         "quotes": [{"text": "大人虎变", "cite_id": "zhouyi:49:yao:5"}],
     }
@@ -140,20 +140,29 @@ def test_classify_topic(monkeypatch):
     assert llm.classify_topic(CFG, "问") is None
 
 
-def test_hecan_context_in_payload_and_quotes_validate(monkeypatch):
-    # 合参（§6.2）：紫微断语进 payload 作语境，其引文过两库混合校验
+def _ziwei_context_block():
     from yijing_agent.ziwei import chart as zchart
     from yijing_agent.ziwei import selection as zselection
     from yijing_agent.ziwei.knowledge import ZiweiKB
 
-    cast, sel, vd = _fixture()
     q = "近期换一份工作是否合适"
     tp = topic.classify(q)
     zkb = ZiweiKB()
     csel = zselection.select_context(
         zkb, zchart.cast(datetime(2000, 9, 14, 12, 0), "男"), tp, q)
-    cid = csel.readings[0].cite_id
-    ztext = zkb.citation(cid)["text"]
+    items = [(r.cite_id, zkb.citation(r.cite_id)["source"],
+              zkb.citation(r.cite_id)["text"]) for r in csel.readings]
+    return q, tp, llm.ContextBlock("紫微盘（论秉性禀赋）",
+                                   list(csel.notes), items)
+
+
+def test_context_block_in_payload_and_quotes_validate(monkeypatch):
+    # 语境合参（ALGORITHM.md 五）：紫微断语进 payload 作语境，
+    # 其引文过混合校验
+    cast, sel, vd = _fixture()
+    q, tp, blk = _ziwei_context_block()
+    cid = blk.items[0][0]
+    ztext = blk.items[0][2]
 
     good = _good_payload()
     good["quotes"].append({"text": ztext[:6], "cite_id": cid})
@@ -165,32 +174,40 @@ def test_hecan_context_in_payload_and_quotes_validate(monkeypatch):
 
     monkeypatch.setattr(llm.requests, "post", fake_post)
     result, attempts = llm.interpret(CFG, kb, q, cast, sel, vd, tp,
-                                     context=(zkb, csel))
+                                     contexts=[blk])
     assert attempts == 1
-    assert "【合参语境】" in seen["payload"] and cid in seen["payload"]
+    assert "【语境·紫微盘（论秉性禀赋）】" in seen["payload"]
+    assert cid in seen["payload"]
     assert "不得据以改动结论" in seen["payload"]
 
 
-def test_hecan_fabricated_ziwei_quote_rejected(monkeypatch):
-    # 合参引文同样逐字校验：伪造的紫微断语不放行
-    from yijing_agent.ziwei import chart as zchart
-    from yijing_agent.ziwei import selection as zselection
-    from yijing_agent.ziwei.knowledge import ZiweiKB
-
+def test_context_fabricated_quote_rejected(monkeypatch):
+    # 语境引文同样逐字校验：伪造的紫微断语不放行
     cast, sel, vd = _fixture()
-    q = "近期换一份工作是否合适"
-    tp = topic.classify(q)
-    zkb = ZiweiKB()
-    csel = zselection.select_context(
-        zkb, zchart.cast(datetime(2000, 9, 14, 12, 0), "男"), tp, q)
-    cid = csel.readings[0].cite_id
+    q, tp, blk = _ziwei_context_block()
+    cid = blk.items[0][0]
 
     bad = _good_payload()
     bad["quotes"].append({"text": "紫微入官禄大富大贵", "cite_id": cid})
     monkeypatch.setattr(llm.requests, "post",
                         lambda *a, **k: _Resp(json.dumps(bad, ensure_ascii=False)))
     with pytest.raises(llm.InterpreterError):
-        llm.interpret(CFG, kb, q, cast, sel, vd, tp, context=(zkb, csel))
+        llm.interpret(CFG, kb, q, cast, sel, vd, tp, contexts=[blk])
+
+
+def test_context_cannot_ground_judgment(monkeypatch):
+    # 主断唯一：断语只落在语境文本上 → 拒绝（吉凶只有一个出处）
+    cast, sel, vd = _fixture()
+    q, tp, blk = _ziwei_context_block()
+    cid = blk.items[0][0]
+
+    bad = _good_payload()
+    bad["judgment"] = f"势强宜进。[{cid}]"
+    monkeypatch.setattr(llm.requests, "post",
+                        lambda *a, **k: _Resp(json.dumps(bad, ensure_ascii=False)))
+    with pytest.raises(llm.InterpreterError) as ei:
+        llm.interpret(CFG, kb, q, cast, sel, vd, tp, contexts=[blk])
+    assert any("主断侧" in e for e in ei.value.errors)
 
 
 # ── 多轮追问 ──────────────────────────────

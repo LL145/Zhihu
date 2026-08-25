@@ -1,4 +1,4 @@
-"""引文校验器测试：幻觉闸门必须挡住不实引文与越界出处。"""
+"""引文校验器测试：幻觉闸门必须挡住不实引文、越界出处与语境立断。"""
 
 from yijing_agent.validator import normalize, validate, validate_followup
 
@@ -10,9 +10,9 @@ ALLOWED = {
 
 def _ok_result():
     return {
-        "translation": "白话",
+        "conclusion": "现在可以试着往前迈一步，没有大碍。",
         "judgment": "宜进，无咎。[zhouyi:1:yao:4]",
-        "interpretation": "解读文字 [zhouyi:1:yao:4]",
+        "reasons": "解读文字 [zhouyi:1:yao:4]",
         "advice": ["建议一", "建议二"],
         "quotes": [{"text": "或跃在渊，无咎", "cite_id": "zhouyi:1:yao:4"}],
     }
@@ -44,9 +44,9 @@ def test_unknown_cite_id_rejected():
     assert any("不在本次给定文本" in e for e in validate(r, ALLOWED))
 
 
-def test_interpretation_cite_mark_checked():
+def test_reasons_cite_mark_checked():
     r = _ok_result()
-    r["interpretation"] = "文字 [tuan:99]"
+    r["reasons"] = "文字 [tuan:99]"
     assert any("tuan:99" in e for e in validate(r, ALLOWED))
 
 
@@ -62,8 +62,18 @@ def test_judgment_required():
     assert any("judgment" in e for e in validate(r, ALLOWED))
 
 
+def test_conclusion_required_and_plain():
+    r = _ok_result()
+    del r["conclusion"]
+    assert any("conclusion" in e for e in validate(r, ALLOWED))
+    # 白话结论不得夹带 cite 标注（结论先行，面向不识古文的用户）
+    r = _ok_result()
+    r["conclusion"] = "可以往前走。[zhouyi:1:yao:4]"
+    assert any("纯白话" in e for e in validate(r, ALLOWED))
+
+
 def test_judgment_without_cite_rejected():
-    # 无据不断：占断必须标注所据 cite_id
+    # 无据不断：断语必须标注所据 cite_id
     r = _ok_result()
     r["judgment"] = "大吉大利，放手去做。"
     assert any("无据不断" in e for e in validate(r, ALLOWED))
@@ -72,8 +82,29 @@ def test_judgment_without_cite_rejected():
 def test_judgment_out_of_pool_cite_rejected():
     r = _ok_result()
     r["judgment"] = "宜进。[zhouyi:99:guaci]"
-    assert any("占断" in e and "zhouyi:99:guaci" in e
+    assert any("断语" in e and "zhouyi:99:guaci" in e
                for e in validate(r, ALLOWED))
+
+
+def test_judgment_must_ground_in_primary():
+    # 主断唯一（ALGORITHM.md 五）：断语所据须落在主断侧文本上，
+    # 语境侧（如姓名卦、紫微断语）可引不可断
+    allowed = {**ALLOWED, "ziwei:2:ming:ziwei": "紫微守命……"}
+    primary = frozenset(ALLOWED)
+    r = _ok_result()
+    r["judgment"] = "势强宜进。[ziwei:2:ming:ziwei]"
+    assert any("主断侧" in e for e in validate(r, allowed, primary))
+    # 主断侧有据即可，语境可并引
+    r["judgment"] = "宜进。[zhouyi:1:yao:4][ziwei:2:ming:ziwei]"
+    assert validate(r, allowed, primary) == []
+
+
+def test_judgment_shuogua_alone_rejected():
+    # 说卦取象不得单独立断（primary 缺省时同样生效）
+    allowed = {**ALLOWED, "shuogua:11:li": "离为火……"}
+    r = _ok_result()
+    r["judgment"] = "宜进。[shuogua:11:li]"
+    assert any("不得单独立断" in e for e in validate(r, allowed))
 
 
 def test_empty_quotes_rejected():

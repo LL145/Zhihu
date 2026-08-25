@@ -78,7 +78,7 @@ def test_wenyan_enters_allowed_texts(tmp_path):
 def test_judgment_cannot_rest_on_shuogua_alone():
     allowed = {"shuogua:11:qian": "乾为天为圜",
                "zhouyi:1:yao:3": "君子终日乾乾，夕惕若，厉无咎。"}
-    base = {"translation": "白话", "interpretation": "解读。[zhouyi:1:yao:3]",
+    base = {"conclusion": "白话结论。", "reasons": "解读。[zhouyi:1:yao:3]",
             "advice": ["建议"],
             "quotes": [{"text": "君子终日乾乾", "cite_id": "zhouyi:1:yao:3"}]}
     bad = dict(base, judgment="宜进。[shuogua:11:qian]")

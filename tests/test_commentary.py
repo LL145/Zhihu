@@ -57,9 +57,9 @@ def test_commentary_in_allowed_texts():
     assert "wangbi:49:yao:5" in allowed
     # 王弼注可引用且通过逐字校验
     result = {
-        "translation": "白话",
+        "conclusion": "白话结论。",
         "judgment": "宜进。[zhouyi:49:yao:5]",
-        "interpretation": "解读 [zhouyi:49:yao:5]，注家亦云 [wangbi:49:yao:5]",
+        "reasons": "解读 [zhouyi:49:yao:5]，注家亦云 [wangbi:49:yao:5]",
         "advice": ["建议"],
         "quotes": [{"text": "合时心也", "cite_id": "wangbi:49:yao:5"}],
     }

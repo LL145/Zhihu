@@ -19,8 +19,7 @@ from . import config, lunar, service, topic
 from .llm import InterpreterError
 from .trigrams import ZHI
 
-_TITLE = "算命 Agent —— 有典可依、可复现（卦断事，盘论人）"
-_METHODS = {"时间起卦": "time", "铜钱法": "coin", "姓名字占": "zi"}
+_TITLE = "算命 Agent —— 有典可依、可复现（单一模式：三占同起，主断唯一）"
 _SHICHEN_CHOICES = ["未知"] + [z + "时" for z in ZHI]
 # 出生年份下拉范围：今年（北京时间）起倒排至 1920（cnlunar 支持下限之内）
 _YEAR_CHOICES = [""] + [str(y) for y in range(lunar.now_beijing().year, 1919, -1)]
@@ -33,7 +32,7 @@ def _parse_birth(year, month, day, shichen, gender):
         return None
     if not (year and month and day) or shichen == "未知" or not gender:
         raise ValueError("紫微排盘需出生年、月、日、时辰、性别五项齐全；"
-                         "时辰未知则无法排盘（可全部留空，改用易经事引擎）")
+                         "时辰未知则无法排盘（可全部留空，本次无盘照常起卦）")
     hour = ZHI.index(shichen[0]) * 2
     try:
         return datetime(int(year), int(month), int(day), hour), gender
@@ -70,21 +69,15 @@ class App(ttk.Frame):
             width=8, state="readonly")
         self.topic_box.current(0)
         self.topic_box.pack(side="left", padx=(4, 0))
-        self.method = ttk.Combobox(row1, values=list(_METHODS), width=8,
-                                   state="readonly")
-        self.method.current(0)
-        self.method.pack(side="left", padx=4)
-        self.method.bind("<<ComboboxSelected>>", self._method_changed)
-        ttk.Label(row1, text="之字：").pack(side="left")
-        self.zi_entry = ttk.Entry(row1, width=8)
-        self.zi_entry.configure(state="disabled")   # 仅字占用（如姓名）
-        self.zi_entry.pack(side="left", padx=(0, 4))
+        ttk.Label(row1, text="　姓名：").pack(side="left")
+        self.name_entry = ttk.Entry(row1, width=8)
+        self.name_entry.pack(side="left", padx=(0, 4))
         self.run_btn = ttk.Button(row1, text="起卦 / 排盘", command=self.run)
         self.run_btn.pack(side="left")
 
         row2 = ttk.Frame(self)
         row2.pack(fill="x", pady=(6, 0))
-        ttk.Label(row2, text="生辰（公历；命理类排盘、问事时合参用，可留空）：").pack(side="left")
+        ttk.Label(row2, text="生辰（公历；紫微排盘用，可留空）：").pack(side="left")
         self.birth_y = ttk.Combobox(row2, values=_YEAR_CHOICES, width=6,
                                     state="readonly")
         self.birth_y.current(0)
@@ -112,9 +105,6 @@ class App(ttk.Frame):
                                    state="readonly")
         self.gender.current(0)
         self.gender.pack(side="left")
-        self.both_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(row2, text="卦盘并占（命理问＋生辰时两断并陈）",
-                        variable=self.both_var).pack(side="left", padx=(10, 0))
         ttk.Button(row2, text="设置（API Key）…",
                    command=self.open_settings).pack(side="right")
 
@@ -152,10 +142,6 @@ class App(ttk.Frame):
         self.birth_d.configure(values=days)
         if cur not in days:            # 如 31 日遇小月：清空令用户重选
             self.birth_d.set("")
-
-    def _method_changed(self, _event=None):
-        on = _METHODS[self.method.get()] == "zi"
-        self.zi_entry.configure(state="normal" if on else "disabled")
 
     # ── 输出辅助 ────────────────────────────────────────────────────
 
@@ -198,11 +184,7 @@ class App(ttk.Frame):
         except ValueError as e:
             messagebox.showwarning(_TITLE, str(e))
             return
-        method = _METHODS[self.method.get()]
-        chars = self.zi_entry.get().strip() if method == "zi" else ""
-        if method == "zi" and not chars:
-            messagebox.showinfo(_TITLE, "字占请输入所占之字（两三字，如姓名）。")
-            return
+        name = self.name_entry.get().strip()
         chosen = self.topic_box.get()
         override = {n: k for k, n in topic.CATEGORIES}.get(chosen)
         self._clear()
@@ -214,46 +196,37 @@ class App(ttk.Frame):
         self._set_status("推演中（判类·起卦/排盘·选文）……")
         threading.Thread(
             target=self._prepare_worker,
-            args=(token, question, method, chars, birth, override, cfg,
-                  self.both_var.get()),
+            args=(token, question, name, birth, override, cfg),
             daemon=True).start()
 
-    def _prepare_worker(self, token, question, method, chars, birth, override,
-                        cfg, both):
+    def _prepare_worker(self, token, question, name, birth, override, cfg):
         """判类（规则→占者判类）与全部确定性步骤在工作线程完成，不卡界面。"""
         try:
             tp = service.resolve_topic(
                 question, cfg=cfg if cfg["api_key"] else None,
                 override=override)
             session = service.prepare(
-                question, method=method, chars=chars,
+                question, name=name,
                 birth_dt=birth[0] if birth else None,
-                gender=birth[1] if birth else None, tp=tp, both=both)
+                gender=birth[1] if birth else None, tp=tp)
             self._q.put(("prepared", token, session, cfg))
         except service.RefusalError as e:
             self._q.put(("refused", token, str(e)))
-        except ValueError as e:                   # 字占之字不合法等，如实回显
+        except ValueError as e:                   # 输入不合法等，如实回显
             self._q.put(("refused", token, str(e)))
         except Exception as e:                    # 判类网络异常等不砸界面
             self._q.put(("refused", token, f"出错：{e}"))
 
     def _interpret_worker(self, session, cfg):
         try:
-            text, attempts = session.interpret(cfg)
-            self._q.put(("interp_ok", session, text, attempts, cfg["model"]))
+            text, _attempts = session.interpret(cfg)
+            self._q.put(("interp_ok", session, text))
         except InterpreterError as e:
             detail = "\n".join(f"  - {err}" for err in e.errors)
             self._q.put(("interp_err", session,
                          f"〔解读不可用〕{e}\n{detail}".rstrip()))
         except Exception as e:                    # 网络等异常不砸界面
             self._q.put(("interp_err", session, f"〔解读不可用〕{e}"))
-
-    def _finish_output(self):
-        if self.session is not None:
-            self._append("")
-            self._append(self.session.repro_text())
-            self._append("")
-            self._append("※ " + service.DISCLAIMER)
 
     # ── 追问 ────────────────────────────────────────────────────────
 
@@ -302,16 +275,20 @@ class App(ttk.Frame):
                         continue
                     _, _, session, cfg = msg
                     self.session = session
-                    self._append(session.body_text())
-                    self._append("")
                     if not cfg["api_key"]:
+                        self._append(session.render_all())
+                        self._append("")
                         self._append("（未配置 OpenRouter API Key：点右上「设置」"
-                                     "填入后可获得占断与讲释。当前为仅原文与"
-                                     "定例的输出。）")
-                        self._finish_output()
+                                     "填入后可获得占断与讲释。当前结论直取"
+                                     "定例断辞。）")
                         self._set_busy(False)
                         self._set_status("※ " + service.DISCLAIMER)
                         continue
+                    self._append(session.header_text())
+                    self._append("")
+                    self._append(session.overview_text())
+                    self._append("")
+                    self._append("（占断与讲释生成中，引文将逐字校验……）")
                     self._set_status(f"占断生成中（{cfg['model']}，"
                                      "引文将逐字校验）……")
                     threading.Thread(target=self._interpret_worker,
@@ -321,14 +298,15 @@ class App(ttk.Frame):
                 if session is not self.session:   # 已开新一卦，丢弃旧结果
                     continue
                 if kind == "interp_ok":
-                    _, _, text, attempts, model = msg
-                    self._append(text)     # 含占断存证（模型、次数、SHA-256）
-                    self._finish_output()
+                    self._clear()
+                    self._append(msg[2])   # 完整输出（结论先行，含存证凭证）
                     self._enable_followup(True)
                 elif kind == "interp_err":
+                    self._clear()
                     self._append(msg[2])
-                    self._append("已降级为仅原文与结论的输出。")
-                    self._finish_output()
+                    self._append("已降级为定例断辞与原文的输出。")
+                    self._append("")
+                    self._append(session.render_all())
                 elif kind == "fu_ok":
                     self._append(msg[2])
                     self._append("")
