@@ -25,16 +25,19 @@ def _full(**kw):
 def test_event_primary_routing():
     s = _full()
     assert s.primary == "event"
+    assert s.event_cast is not None and s.event_cast is not s.time_cast
     assert s.time_cast is not None and s.name_cast is not None
     assert s.chart is not None
     text = s.render_all()
     assert "所问：近期换工作是否合适" in text
     assert "类别：事业" in text
     assert text.index("【结论】") < text.index("── 卦盘一览")   # 结论先行
-    assert "时间卦（主断）" in text
+    assert "问语卦（主断）" in text and "书写来意" in text
+    assert "时间卦（参·当下之势）" in text
     assert "姓名卦（参·论问者之位）" in text
     assert "紫微盘（语境·论禀赋）" in text
     assert "起卦凭证" in text and "排盘凭证" in text
+    assert "问语起卦" in text and "字数分之" in text   # 问语卦凭证在列
 
 
 def test_chart_primary_routing():
@@ -80,9 +83,10 @@ def test_name_cast_deterministic_and_book_bound():
 # ── 语境合参：主断唯一 ────────────────────
 
 
-def test_event_contexts_include_name_and_ziwei():
+def test_event_contexts_include_time_name_and_ziwei():
     s = _full()
     titles = [b.title for b in s.contexts]
+    assert any("时间卦" in t for t in titles)   # 恒作当下之势之参
     assert any("姓名卦" in t for t in titles)
     assert any("紫微盘" in t for t in titles)
     for b in s.contexts:
@@ -130,7 +134,7 @@ def test_contexts_wired_into_llm(monkeypatch):
 
     monkeypatch.setattr(service, "_interpret", fake_interpret)
     s.interpret({"model": "m"})
-    assert seen["contexts"] is s.contexts and len(s.contexts) == 2
+    assert seen["contexts"] is s.contexts and len(s.contexts) == 3
 
 
 def test_chart_fortune_aspect_palace():
@@ -163,6 +167,27 @@ def test_chart_fortune_liunian_in_evidence():
     ev = s.evidence_text()
     assert "太岁在" in ev and "小限在" in ev
     assert "二限太岁总说" in ev
+
+
+# ── 问语入卦（v3.5）───────────────────────
+
+
+def test_same_moment_different_questions_differ():
+    # 问语入卦之本旨：同一时刻问不同事，卦随问语而异（字数定卦体）
+    a = service.prepare("近期换工作是否合适", when=WHEN)   # 9字→雷风恒
+    b = service.prepare("今日出门是否顺利", when=WHEN)     # 8字→震为雷
+    assert a.event_cast.ben_binary != b.event_cast.ben_binary
+    assert a.sel.primary.cite_id != b.sel.primary.cite_id
+    assert a.event_cast.ben_binary != a.time_cast.ben_binary
+
+
+def test_wenyu_fallback_without_hanzi():
+    # 问语无汉字可数：时间卦代主断，缘由如实标注，时间卦语境块不重列
+    s = service.prepare("ABC 123", when=WHEN)
+    assert s.primary == "event" and s.event_cast is s.time_cast
+    text = s.render_all()
+    assert "问语卦未起" in text and "时间卦（主断）" in text
+    assert not [b for b in s.contexts if "时间卦" in b.title]
 
 
 # ── 红线、判类与追问 ──────────────────────

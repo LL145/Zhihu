@@ -138,3 +138,53 @@ def test_cross_check_with_zhdate():
         lm = lunar.from_datetime(d)
         z = zhdate.ZhDate.from_datetime(d)
         assert (z.lunar_month, z.lunar_day) == (lm.month_num, lm.day_num), d
+
+
+# ── 问语起卦（书写来意，以其字占之；v3.5） ──────────────────────────
+
+WHEN = datetime(2026, 8, 24, 11, 0)   # 丙午年七月十二 午时（时数7）
+
+
+def test_wenyu_nine_chars_known():
+    # 「近期换工作是否合适」9字不匀：少一半（4）为上卦→震，多一半（5）
+    # 为下卦→巽（雷风恒）；动爻=(9+午7)%6=4（「取爻当以时加之」）
+    cast = casting.cast_wenyu("近期换工作是否合适", WHEN)
+    assert cast.method == "meihua_wenyu"
+    assert kb.full_name(kb.id_of(cast.ben_binary)) == "雷风恒"
+    assert cast.moving == [4]
+    assert "字数分之" in cast.reproducibility["约定"]
+
+
+def test_wenyu_even_split_and_non_hanzi_ignored():
+    # 8字均平对半：4→震上、4→震下（震为雷）；动爻=(8+7)%6=3
+    a = casting.cast_wenyu("今日出门是否顺利", WHEN)
+    assert kb.full_name(kb.id_of(a.ben_binary)) == "震为雷"
+    assert a.moving == [3]
+    # 只数汉字：标点、字母、数字不入数
+    b = casting.cast_wenyu("今日出门，是否顺利？OK123", WHEN)
+    assert b.lines == a.lines
+
+
+def test_wenyu_time_enters_moving_only():
+    # 同问异时：卦体由字数定（不变），动爻随时辰而动
+    a = casting.cast_wenyu("近期换工作是否合适", datetime(2026, 8, 24, 11, 0))
+    b = casting.cast_wenyu("近期换工作是否合适", datetime(2026, 8, 24, 15, 30))
+    assert a.ben_binary == b.ben_binary
+    assert a.moving == [4] and b.moving == [6]   # (9+申9)%6=0→取6
+
+
+def test_wenyu_two_three_chars_use_strokes():
+    # 二三字依字画（同姓名卦法），动爻加时：求7画→艮、财7画→艮
+    # （艮为山），动爻=(总14画+午7)%6=3
+    cast = casting.cast_wenyu("求财", WHEN)
+    assert kb.full_name(kb.id_of(cast.ben_binary)) == "艮为山"
+    assert cast.moving == [3]
+
+
+def test_wenyu_rejects_and_deterministic():
+    with pytest.raises(ValueError):
+        casting.cast_wenyu("ABC 123", WHEN)      # 无汉字可数
+    with pytest.raises(ValueError):
+        casting.cast_wenyu("占", WHEN)           # 一字须辨阴阳画
+    a = casting.cast_wenyu("明日天气如何", WHEN)
+    assert a.lines == casting.cast_wenyu("明日天气如何", WHEN).lines

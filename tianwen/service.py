@@ -1,8 +1,9 @@
 """单一模式流水线门面（ALGORITHM.md）。
 
-输入固定五项：问什么＋姓名＋生日＋出生时辰＋性别。三种占法同时起
-（时间卦、姓名卦、紫微盘），全部确定性、无随机数；吉凶只从主断一处出
-（问具体事→时间卦，问命格/时运且有盘→紫微盘），其余占法只以语境块
+输入固定五项：问什么＋姓名＋生日＋出生时辰＋性别。四样同起（问语卦、
+时间卦、姓名卦、紫微盘），全部确定性、无随机数；吉凶只从主断一处出
+（问具体事→问语卦[书写来意，以其字占之]，问命格/时运且有盘→紫微盘），
+时间卦恒作当下之势之参，其余占法只以语境块
 （ContextBlock）进入解读层——结构上杜绝自相矛盾（ALGORITHM.md 五）。
 
 输入不全只减少参照，不改变流程形状：姓名不合书例则不起姓名卦并说明
@@ -72,7 +73,7 @@ def prepare(question, *, name="", birth_dt=None, gender=None, when=None,
 
 
 class Session:
-    """单一模式会话：三占同起，主断唯一，语境合参。"""
+    """单一模式会话：四样同起，主断唯一，语境合参。"""
 
     def __init__(self, question, tp, when, name, birth_dt, gender):
         self.question = question
@@ -83,8 +84,16 @@ class Session:
         self.kb = KnowledgeBase()
         self.zkb = ZiweiKB()
 
-        # 起时间卦（恒起；meihua:1:qi:shijian）
+        # 起时间卦（恒起，当下之势之参；meihua:1:qi:shijian）
         self.time_cast = casting.cast_meihua(when)
+
+        # 起问语卦（事类主断：书写来意，以其字占之；meihua:1:qi:weiren）
+        self.event_note = ""
+        try:
+            self.event_cast = casting.cast_wenyu(question, when)
+        except ValueError as e:
+            self.event_note = f"问语卦未起——{e}；以时间卦（年月日时起例）代主断"
+            self.event_cast = self.time_cast
 
         # 起姓名卦（meihua:1:qi:zishu；不合书例则不起，缘由如实展示）
         self.name = "".join((name or "").split())
@@ -110,10 +119,10 @@ class Session:
         self.primary = "chart" if (tp.engine_hint == "chart"
                                    and self.chart is not None) else "event"
         if self.primary == "event":
-            ben = self.kb.id_of(self.time_cast.ben_binary)
-            zhi = self.kb.id_of(self.time_cast.zhi_binary)
-            self.sel = selection.select(self.kb, self.time_cast.method, ben,
-                                        zhi, self.time_cast.moving, tp,
+            ben = self.kb.id_of(self.event_cast.ben_binary)
+            zhi = self.kb.id_of(self.event_cast.zhi_binary)
+            self.sel = selection.select(self.kb, self.event_cast.method, ben,
+                                        zhi, self.event_cast.moving, tp,
                                         question)
             p = self.sel.primary
             self.vd = verdict.decide(p.cite_id,
@@ -163,11 +172,13 @@ class Session:
 
     def _build_contexts(self):
         blocks = []
-        if self.primary == "chart":
+        if self.primary == "chart" or self.event_cast is not self.time_cast:
+            # 时间卦恒作当下之势之参（问语卦回落时与主断同卦，不重列）
+            yi = "盘" if self.primary == "chart" else "问语卦"
             blocks.append(ContextBlock(
                 title="时间卦（当下之势）",
                 notes=[f"以此问之时起卦（年月日时起例）：{self._cast_desc(self.time_cast)}",
-                       "只作当下之势之参，吉凶仍依盘断"],
+                       f"只作当下之势之参，吉凶仍依{yi}断"],
                 items=self._cast_items(self.time_cast)))
         if self.name_cast is not None:
             blocks.append(ContextBlock(
@@ -237,8 +248,10 @@ class Session:
         parts = [f"所问：{self.question}",
                  f"类别：{self.tp.name}{report.topic_source_label(self.tp)}"]
         if self.tp.engine_hint == "chart" and self.chart is None:
-            parts.append("（属命理之问而生辰不全：以时间卦就当下之势作断，"
+            parts.append("（属命理之问而生辰不全：以卦就当下之势作断，"
                          "不论终身）")
+        if self.event_note and self.primary == "event":
+            parts.append(f"（{self.event_note}）")
         if self.name_note:
             parts.append(f"（{self.name_note}）")
         if self.chart_note:
@@ -247,8 +260,16 @@ class Session:
 
     def overview_text(self):
         lines = ["── 卦盘一览 " + "─" * 28]
-        tag = "主断" if self.primary == "event" else "参·当下之势"
-        lines.append(f"  时间卦（{tag}）：{self._cast_desc(self.time_cast)}")
+        if self.primary == "event":
+            if self.event_cast is not self.time_cast:
+                lines.append(f"  问语卦（主断）：以书写来意起，"
+                             f"{self._cast_desc(self.event_cast)}")
+                lines.append(f"  时间卦（参·当下之势）："
+                             f"{self._cast_desc(self.time_cast)}")
+            else:   # 问语无字回落：时间卦代主断（缘由见卷首标注）
+                lines.append(f"  时间卦（主断）：{self._cast_desc(self.time_cast)}")
+        else:
+            lines.append(f"  时间卦（参·当下之势）：{self._cast_desc(self.time_cast)}")
         if self.name_cast is not None:
             lines.append(f"  姓名卦（参·论问者之位）：「{self.name}」"
                          f"{self._cast_desc(self.name_cast)}")
@@ -272,7 +293,12 @@ class Session:
 
     def detail_text(self):
         """卦画与盘面（--full 附录用；默认输出为省篇幅不含）。"""
-        parts = [report.render_cast(self.kb, self.time_cast)]
+        parts = []
+        if self.primary == "event" and self.event_cast is not self.time_cast:
+            parts.append("问语卦：")
+            parts.append(report.render_cast(self.kb, self.event_cast))
+            parts.append("时间卦：")
+        parts.append(report.render_cast(self.kb, self.time_cast))
         if self.name_cast is not None:
             parts.append(f"姓名卦「{self.name}」：")
             parts.append(report.render_cast(self.kb, self.name_cast))
@@ -281,7 +307,10 @@ class Session:
         return "\n\n".join(parts)
 
     def repro_text(self):
-        parts = [report.render_repro(self.time_cast)]
+        parts = []
+        if self.primary == "event" and self.event_cast is not self.time_cast:
+            parts.append(report.render_repro(self.event_cast))
+        parts.append(report.render_repro(self.time_cast))
         if self.name_cast is not None:
             parts.append(report.render_repro(self.name_cast))
         if self.chart is not None:
@@ -340,7 +369,7 @@ class Session:
         """→ (完整渲染文本, 尝试次数)。校验不过抛 InterpreterError。"""
         if self.primary == "event":
             result, attempts = _interpret(
-                cfg, self.kb, self.question, self.time_cast, self.sel,
+                cfg, self.kb, self.question, self.event_cast, self.sel,
                 self.vd, self.tp, self.contexts)
         else:
             result, attempts = zllm.interpret_chart(
@@ -359,7 +388,7 @@ class Session:
             raise RefusalError(refusal)
         if self.primary == "event":
             result, _ = _followup(
-                cfg, self.kb, self.question, self.time_cast, self.sel,
+                cfg, self.kb, self.question, self.event_cast, self.sel,
                 self.vd, self.first_result, self.history, ask, self.tp,
                 self.contexts)
         else:

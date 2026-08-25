@@ -6,6 +6,13 @@
 - 梅花易数·字占：以所占之字（如姓名）的笔画起卦，与时刻无关。规则出自
   《梅花易数》卷一「一字占至十一字占」（二字两仪平分、三字一上二下），
   占例见「西林寺牌额占」（系字画占例）。
+- 梅花易数·问语起卦（事类主断，v3.5）：书写来意，以其字占之（卷一
+  「为人占」）。二三字依字画（同姓名卦法）；四字以上「字数分之」——
+  少一半为上卦、多一半为下卦（均平对半），各以字数配先天八卦（「听其
+  语声……即如其字数分之起卦」；「十一字以上……止用字数」）；动爻＝
+  （总数＋时辰数）除六（「爻以六除」末句「取爻当以时加之」，时辰由此
+  入卦）。四至十字书例之平仄声调法（古四声含入声）无四声底本不可机断，
+  一律字数分之，如实标注。
 - 铜钱法·六爻（留存，不入单一模式，ALGORITHM.md 七）：《卜筮正宗》
   明说掷真钱，以伪随机数代掷非古籍明说，故待能接收用户真实掷象输入
   时启用。cast_coin 的种子法（SHA-256(问题|时刻|盐)，三背老阳9、
@@ -144,6 +151,82 @@ def cast_zi(chars: str) -> CastResult:
         "复现方式": "任何人以同一字、同版笔画表依上式复算，结果必同",
     }
     return CastResult(method="meihua_zi", lines=lines, reproducibility=repro)
+
+
+def _is_hanzi(ch: str) -> bool:
+    """汉字判定（CJK 基本区＋扩展A区）：问语「只数汉字」，标点、字母、
+    数字非字不入数。"""
+    return "一" <= ch <= "鿿" or "㐀" <= ch <= "䶿"
+
+
+def cast_wenyu(question: str, dt: datetime) -> CastResult:
+    """问语起卦（书写来意，以其字占之；《梅花易数》卷一「为人占」）。
+
+    二三字依字画起（两仪平分／三才，同姓名卦法）；四字以上「字数分之」：
+    少一半为上卦、多一半为下卦（均平对半），各以字数配先天八卦。动爻＝
+    （总数＋时辰数）除六——「取爻当以时加之」（爻以六除），时辰由此入卦，
+    与姓名卦不加时有别（姓名所占者字，非时事）。四至十字书例之平仄声调法
+    需古四声，无底本不可机断，一律字数分之，凭证如实标注。
+    问语无汉字可数或仅一字（一字占须辨字形阴阳画）则抛 ValueError，
+    调用方回落时间卦并声明。
+    """
+    hanzi = "".join(ch for ch in (question or "") if _is_hanzi(ch))
+    n = len(hanzi)
+    if n == 0:
+        raise ValueError("问语无汉字可数（只数汉字，标点、字母、数字不入数）")
+    if n == 1:
+        raise ValueError("问语仅一字：一字占须辨字形左右阴阳画，无字形数据不可机断")
+    lm = lunar.from_datetime(dt)
+    shi = lm.shichen_num
+    if n <= 3:
+        counts = []
+        for ch in hanzi:
+            c = strokes.total_strokes(ch)
+            if c is None:
+                raise ValueError(f"「{ch}」不在笔画表内，二三字问语依字画起卦不可缺")
+            counts.append(c)
+        if n == 2:
+            s_upper, s_lower = counts
+            fen = "二字为两仪平分：一字为上卦，一字为下卦"
+        else:
+            s_upper, s_lower = counts[0], counts[1] + counts[2]
+            fen = "三字为三才：一字为上卦，二字为下卦"
+        total = sum(counts)
+        qushu = ("；".join(f"{ch}={c}画" for ch, c in zip(hanzi, counts))
+                 + f"（{fen}，字画起）")
+        suanshi = (f"上卦={s_upper}画%8；下卦={s_lower}画%8；"
+                   f"动爻=(总{total}画+时{lm.shichen_zhi}{shi})%6")
+    else:
+        s_upper, s_lower = n // 2, n - n // 2
+        total = n
+        fen = ("字数均平，对半分之" if n % 2 == 0
+               else "字数不匀，少一半为上卦（取天轻清之义）")
+        qushu = f"汉字 {n} 字（{fen}）：前{s_upper}字为上卦，后{s_lower}字为下卦"
+        suanshi = (f"上卦={s_upper}%8；下卦={s_lower}%8；"
+                   f"动爻=(总{total}+时{lm.shichen_zhi}{shi})%6")
+    upper_num = s_upper % 8 or 8
+    lower_num = s_lower % 8 or 8
+    moving = (total + shi) % 6 or 6
+    upper, lower = BY_NUM[upper_num], BY_NUM[lower_num]
+    lines = _one_moving_lines(upper, lower, moving)
+    repro = {
+        "起卦法": "梅花易数·问语起卦（书写来意，以其字占之；《梅花易数》"
+                  "卷一「为人占」，分法依「一字占至十一字占」「字占」）",
+        "公历时刻": dt.strftime("%Y-%m-%d %H:%M") + "（北京时间）",
+        "农历": lm.description,
+        "所问之语": f"「{hanzi}」" + ("" if hanzi == "".join((question or "").split())
+                                     else "（只数汉字，标点、字母、数字不入数）"),
+        "取数": qushu,
+        "算式": suanshi + f"：上卦{upper_num}→{upper}；下卦{lower_num}→{lower}；"
+                          f"动爻{moving}",
+        "约定": "四至十字书例用平仄声调取数（古四声含入声），无四声底本"
+                "不可机断，一律以字数分之（同「听其语声……即如其字数分之」例）；"
+                "动爻加时数从「爻以六除」末句「取爻当以时加之」通例"
+                "（姓名卦不加时，从西林寺牌额占例）；"
+                + "；".join(lm.convention_notes),
+        "复现方式": "任何人以同一问语、同一时辰依上式复算，结果必同",
+    }
+    return CastResult(method="meihua_wenyu", lines=lines, reproducibility=repro)
 
 
 def cast_coin(question: str, dt: datetime, salt: str = "") -> CastResult:

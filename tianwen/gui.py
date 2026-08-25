@@ -19,7 +19,7 @@ from . import config, lunar, service, topic
 from .llm import InterpreterError
 from .trigrams import ZHI
 
-_TITLE = "天问 —— 有典可依、可复现（单一模式：三占同起，主断唯一）"
+_TITLE = "天问 —— 有典可依、可复现（单一模式：四样同起，主断唯一）"
 _SHICHEN_CHOICES = ["未知"] + [z + "时" for z in ZHI]
 # 出生年份下拉范围：今年（北京时间）起倒排至 1920（cnlunar 支持下限之内）
 _YEAR_CHOICES = [""] + [str(y) for y in range(lunar.now_beijing().year, 1919, -1)]
