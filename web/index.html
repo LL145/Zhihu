@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>天问 · 网页试用</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E7%AD%AE%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f7f4ec; --panel: #fffdf7; --ink: #2b2620; --dim: #7a7264;
+    --line: #d8d0bd; --accent: #8c3f2b; --accent-ink: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17150f; --panel: #1f1c15; --ink: #e8e2d2; --dim: #97907e;
+      --line: #3a352a; --accent: #b0522f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.7 "Songti SC", STSong, SimSun, "Noto Serif CJK SC", serif;
+  }
+  main { max-width: 46rem; margin: 0 auto; padding: 1.2rem 1rem 4rem; }
+  h1 { font-size: 1.6rem; margin: .6rem 0 0; letter-spacing: .12em; }
+  .tagline { color: var(--dim); font-size: .9rem; margin: 0 0 1.2rem; }
+  fieldset {
+    border: 1px solid var(--line); background: var(--panel);
+    border-radius: 6px; padding: .8rem 1rem 1rem; margin: 0 0 1rem;
+  }
+  legend { padding: 0 .5em; color: var(--dim); font-size: .9rem; }
+  label { display: block; margin: .6rem 0 .15rem; font-size: .95rem; }
+  .hint { color: var(--dim); font-size: .82rem; margin: .15rem 0 0; }
+  input[type=text], input[type=password], input[type=date],
+  input[type=datetime-local], select, textarea {
+    width: 100%; padding: .45em .6em; font: inherit; color: var(--ink);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+  }
+  textarea { min-height: 4.2em; resize: vertical; }
+  .row { display: flex; gap: .8rem; flex-wrap: wrap; }
+  .row > div { flex: 1 1 10rem; }
+  .checks { display: flex; gap: 1.4rem; flex-wrap: wrap; margin-top: .6rem; }
+  .checks label { display: inline-flex; align-items: center; gap: .35em;
+                  margin: 0; }
+  button {
+    font: inherit; padding: .5em 1.6em; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--accent); background: var(--accent);
+    color: var(--accent-ink); letter-spacing: .2em;
+  }
+  button.minor { background: transparent; color: var(--accent);
+                 letter-spacing: 0; padding: .3em .8em; font-size: .85rem; }
+  button:disabled { opacity: .45; cursor: wait; }
+  #status { color: var(--dim); font-size: .9rem; margin: .8rem 0; }
+  #status.err { color: var(--accent); }
+  #out {
+    display: none; white-space: pre-wrap; word-break: break-word;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 6px; padding: 1rem 1.1rem; font-size: .95rem;
+  }
+  #followup { display: none; margin-top: 1rem; }
+  #followup .row { align-items: end; }
+  footer { color: var(--dim); font-size: .8rem; margin-top: 2.5rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>天　问</h1>
+  <p class="tagline">有典可依、可复现的占断——网页试用版。排盘起卦与引文校验
+    全部在你的浏览器内运行；大模型请求由浏览器直达 OpenRouter。</p>
+
+  <form id="form">
+    <fieldset>
+      <legend>所问与其人（输入不全只减少参照，不碍起卦）</legend>
+      <label for="question">所问之事 *</label>
+      <textarea id="question" required
+                placeholder="如：近期换一份工作是否合适"></textarea>
+      <div class="row">
+        <div>
+          <label for="name">姓名（起姓名卦；可缺）</label>
+          <input type="text" id="name" placeholder="两三字">
+        </div>
+        <div>
+          <label for="gender">性别（排盘用）</label>
+          <select id="gender">
+            <option value="">——</option>
+            <option>男</option>
+            <option>女</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="birth">出生日期（公历；可缺则无盘）</label>
+          <input type="date" id="birth">
+        </div>
+        <div>
+          <label for="shichen">出生时辰</label>
+          <select id="shichen"></select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="when">起卦/论限时刻（北京时间；留空取此刻）</label>
+          <input type="datetime-local" id="when">
+        </div>
+      </div>
+      <div class="checks">
+        <label><input type="checkbox" id="full">附卦画与十二宫盘面</label>
+        <label><input type="checkbox" id="nollm">不调大模型（仅定例断辞）</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>大模型（OpenRouter）</legend>
+      <div class="row">
+        <div>
+          <label for="apikey">API Key（sk-or-v1-…）</label>
+          <input type="password" id="apikey" autocomplete="off"
+                 placeholder="留空则仅出定例断辞">
+        </div>
+        <div>
+          <label for="model">模型</label>
+          <input type="text" id="model" value="z-ai/glm-5.3">
+        </div>
+      </div>
+      <p class="hint">Key 只保存在本机浏览器（localStorage），不入仓库、
+        不经任何第三方服务器；公用电脑请用后
+        <button type="button" class="minor" id="clearkey">清除已存 Key</button></p>
+    </fieldset>
+
+    <button type="submit" id="go" disabled>起　占</button>
+    <p id="status">正在启动…</p>
+  </form>
+
+  <pre id="out"></pre>
+
+  <div id="followup">
+    <div class="row">
+      <div>
+        <label for="ask">追问（就本次结果续问，不重新起卦排盘）</label>
+        <input type="text" id="ask">
+      </div>
+      <div style="flex:0">
+        <button type="button" id="askgo">追　问</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>仅供参考，不构成任何专业建议。源码与算法说明见
+    <a href="https://github.com/LL145/Zhihu">GitHub 仓库</a>（ALGORITHM.md）。
+  </footer>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+// 十二时辰（子…亥），值即时辰名；钟点段标注帮助选择，晚子时23点亦选子
+const ZHI = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+const sel = $("shichen");
+sel.append(new Option("——（缺则无盘）", ""));
+ZHI.forEach((z, i) => {
+  const from = (i * 2 + 23) % 24, to = (i * 2) % 24;
+  sel.append(new Option(
+    `${z}（${String(from).padStart(2,"0")}:00–${String(to).padStart(2,"0")}:59）`,
+    z));
+});
+
+try {
+  $("apikey").value = localStorage.getItem("tw.apiKey") || "";
+  $("model").value = localStorage.getItem("tw.model") || "z-ai/glm-5.3";
+} catch (e) { /* 隐私模式等禁用存储时忽略 */ }
+
+$("clearkey").addEventListener("click", () => {
+  $("apikey").value = "";
+  try { localStorage.removeItem("tw.apiKey"); } catch (e) {}
+});
+
+const worker = new Worker("worker.js");
+window._worker = worker;   // 端到端测试之驱动口
+let ready = false, busy = false, timer = null;
+let pending = "run";   // 当前在途请求：run | followup
+let lastAsk = "";
+
+function setStatus(text, err) {
+  $("status").textContent = text;
+  $("status").className = err ? "err" : "";
+}
+
+function startClock(base) {
+  const t0 = Date.now();
+  timer = setInterval(() => {
+    setStatus(`${base}（${Math.round((Date.now() - t0) / 1000)} 秒）…`);
+  }, 1000);
+}
+
+function stopClock() { clearInterval(timer); timer = null; }
+
+function setBusy(b, base) {
+  busy = b;
+  $("go").disabled = b || !ready;
+  $("askgo").disabled = b;
+  stopClock();
+  if (b) startClock(base); else setStatus("就绪。");
+}
+
+worker.onmessage = (ev) => {
+  const m = ev.data;
+  if (m.type === "status") { setStatus(m.text); return; }
+  if (m.type === "fatal") {
+    setStatus("启动失败：" + m.text +
+              "（多为网络原因，刷新重试；需能访问 cdn.jsdelivr.net）", true);
+    return;
+  }
+  if (m.type === "ready") { ready = true; $("go").disabled = false;
+                            setStatus("就绪。"); return; }
+  if (m.type !== "result") return;
+  setBusy(false);
+  const d = m.data, out = $("out");
+  out.style.display = "block";
+  if (pending === "followup") {
+    // 追问的回复（含红线拒答、出错）一律接在下方，保留前文
+    out.textContent += "\n\n── 追问 ────────────────────\n" +
+                       "问：" + lastAsk + "\n\n" + d.text;
+    if (d.kind === "followup") $("ask").value = "";
+  } else {
+    out.textContent = d.text;
+    $("followup").style.display = d.kind === "llm" ? "block" : "none";
+  }
+  if (d.kind === "error") setStatus("出错（详情见输出区）", true);
+  out.scrollIntoView({ behavior: "smooth", block: "nearest" });
+};
+
+$("form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  if (!ready || busy) return;
+  const apiKey = $("apikey").value.trim();
+  const model = $("model").value.trim() || "z-ai/glm-5.3";
+  try {
+    if (apiKey) localStorage.setItem("tw.apiKey", apiKey);
+    localStorage.setItem("tw.model", model);
+  } catch (e) {}
+  $("followup").style.display = "none";
+  const useLLM = apiKey && !$("nollm").checked;
+  pending = "run";
+  setBusy(true, useLLM ? "起占并请求大模型解读，须过逐字引文校验，可能需一两分钟"
+                       : "起占中");
+  worker.postMessage({ type: "run", payload: {
+    question: $("question").value,
+    name: $("name").value,
+    birth: $("birth").value,
+    shichen: $("shichen").value,
+    gender: $("gender").value,
+    when: $("when").value,
+    full: $("full").checked,
+    noLLM: $("nollm").checked,
+    apiKey, model,
+  }});
+});
+
+$("askgo").addEventListener("click", () => {
+  const ask = $("ask").value.trim();
+  if (!ask || busy) return;
+  lastAsk = ask;
+  pending = "followup";
+  setBusy(true, "追问中，回答同过校验闸门");
+  worker.postMessage({ type: "followup", ask });
+});
+$("ask").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") { ev.preventDefault(); $("askgo").click(); }
+});
+</script>
+</body>
+</html>

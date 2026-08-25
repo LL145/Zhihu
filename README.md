@@ -33,9 +33,20 @@
 输入不全只减少参照（如实说明），不改变流程。输出**结论先行**：先一句
 白话结论，再断语，再引原文解释理由。
 
-## 快速开始（Windows）
+## 快速开始
 
-### 方式一：直接下载可执行文件（无需安装 Python）
+### 方式零：网页版（零安装，打开即用）
+
+**<https://ll145.github.io/Zhihu/>** —— 推送 main 后由 GitHub Actions
+自动部署（`pages` 工作流）。排盘起卦、断语选取与逐字引文校验全部在
+你的浏览器内运行（Pyodide 跑的就是本仓库这份 Python 代码，流程与
+命令行版逐字一致）；要大模型解读就在页面里填自己的 OpenRouter API
+Key（默认模型 `z-ai/glm-5.3`）——Key 只保存在本机浏览器
+（localStorage），不入仓库，请求由浏览器直达 OpenRouter，不经任何
+第三方服务器。首次打开需加载十余 MB 的 Python 运行时（来自
+cdn.jsdelivr.net），之后有缓存。
+
+### 方式一：直接下载可执行文件（Windows，无需安装 Python）
 
 每次推送到 main 分支，GitHub Actions 会自动打包 Windows 单文件版：
 仓库 **Actions** 页 → 最新一次 `build` 运行 → Artifacts → 下载
@@ -57,7 +68,7 @@
 要启用大模型解读，把 `config.json`（见下文）放在 exe 同一目录即可
 （界面版直接在「设置」里填）。命令行版双击也可运行（交互输入问题）。
 
-### 方式二：源码运行
+### 方式二：源码运行（Windows/macOS/Linux）
 
 需要 Python 3.9+（[python.org](https://www.python.org/downloads/) 安装时勾选
 "Add python.exe to PATH"）。在项目目录打开终端（PowerShell 或 cmd）：
@@ -218,6 +229,10 @@ tianwen/
                  jingfang/huozhulin/huangjince.json 《京氏易传》
                  《火珠林》《黄金策》（六爻纳甲典据，藏书层）；
                  strokes.json 汉字笔画表（Unicode Unihan kTotalStrokes）
+web/             网页试用版（GitHub Pages + Pyodide）：index.html 页面、
+                 worker.js 加载运行时、app.py 胶水层（浏览器内原样跑
+                 本包与校验闸门；胶水层有测试盯守，部署见
+                 .github/workflows/pages.yml）
 tools/
   import_openiching.py        从 open-iching 仓库导入并校验典籍数据
   import_wikisource_wangbi.py 从维基文库《周易正義》导入王弼注（经文锚定对齐）
@@ -229,12 +244,12 @@ tools/
                               火珠林、黄金策；v4 起卦引擎之典据先行）
   import_unihan_strokes.py    从 Unicode 官方 Unihan 导入汉字笔画表（字占用）
   gen_ziwei_fixtures.py       以 py-iztro 生成排盘命例回归集（开发机用）
-tests/           226 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
+tests/           231 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
                  注疏与文言挂载、说卦体用取象、占章按类附取、藏书检索、
                  引文校验（含主断唯一）、LLM 重试与追问、单一模式路由与
                  语境合参；紫微排盘 21 命例回归（对照 iztro）、安星诀
                  明文例（含小限太岁）、紫微库完整性、选文与结论、问事
-                 分宫、格诀查表、流年二限、书桌召回
+                 分宫、格诀查表、流年二限、书桌召回；网页胶水层
 ```
 
 ## 测试
