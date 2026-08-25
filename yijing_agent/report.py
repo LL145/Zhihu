@@ -1,8 +1,31 @@
 """终端呈现层：结论先行（ALGORITHM.md 六），卦象图、所据原文节选、
-复现凭证与免责声明。"""
+复现凭证与免责声明。
+
+内部引文编号（cite_id，如 zhouyi:49:yao:5）只在校验层流转；对外展示
+一律换成古籍原名（humanize：〔《周易·革·九五》爻辞〕），编号可用
+py -m yijing_agent.corpus 按书名或编号取全文核对。"""
+
+import re
 
 DISCLAIMER = ("内容源自古代典籍原文及传统占法，属传统文化范畴，仅供参考，"
               "不构成任何现实决策依据。")
+
+_CITE_MARK = re.compile(r"\[([a-z]+:[0-9]+(?::[a-z0-9]+)*)\]")
+
+
+def humanize(text, resolve):
+    """把文中的内部引文编号换成古籍原名：[zhouyi:1:guaci] → 〔《周易·乾》卦辞〕。
+
+    resolve(cite_id) → 出处名或 None（未知编号原样保留，不吞不改）。
+    """
+    if resolve is None:
+        return text
+
+    def _sub(m):
+        src = resolve(m.group(1))
+        return f"〔{src}〕" if src else m.group(0)
+
+    return _CITE_MARK.sub(_sub, text)
 
 _YANG = "━━━━━━━"
 _YIN = "━━━ ━━━"
@@ -46,8 +69,8 @@ def render_repro(cast):
 
 
 def render_readings_compact(kb, selection):
-    """所据原文节选：主断条目附全文（含所系传文），其余只列出处与编号；
-    全文可用 python -m yijing_agent.corpus --cite <编号> 随时核对。"""
+    """所据原文节选：主断条目附全文（含所系传文），其余只列古籍原名；
+    全文可用 python -m yijing_agent.corpus --cite <书名> 随时核对。"""
     out = [f"── 所据原文（{selection.rule}；节选，全文见 corpus） " + "─" * 4]
     notes = getattr(selection, "notes", None) or ()
     for note in notes:
@@ -61,7 +84,7 @@ def render_readings_compact(kb, selection):
                 ctx = kb.citation(cid)
                 out.append(f"      · {ctx['source']}：{ctx['text']}")
         else:
-            out.append(f"  ◇ {r.role}［{r.cite_id}］{c['source']}")
+            out.append(f"  ◇ {r.role}：{c['source']}")
     return "\n".join(out)
 
 
@@ -80,25 +103,29 @@ def topic_source_label(topic):
     return _TOPIC_SOURCE.get(getattr(topic, "source", "rule"), "")
 
 
-def render_followup(result):
-    out = ["〔答〕" + result["answer"]]
+def render_followup(result, resolve=None):
+    out = ["〔答〕" + humanize(result["answer"], resolve)]
     for q in result.get("quotes", []):
-        out.append(f"    · [{q['cite_id']}] {q['text']}")
+        src = resolve(q["cite_id"]) if resolve else None
+        label = src or f"[{q['cite_id']}]"
+        out.append(f"    · {label}：「{q['text']}」")
     return "\n".join(out)
 
 
-def render_interpretation(result):
-    """结论先行（ALGORITHM.md 六）：白话结论 → 断语 → 理由 → 建议。"""
+def render_interpretation(result, resolve=None):
+    """结论先行（ALGORITHM.md 六）：白话结论 → 断语 → 理由 → 建议。
+
+    resolve 供 humanize 把断语与理由中的引文编号换成古籍原名。"""
     out = ["【结论】" + result["conclusion"]]
     out.append("")
-    out.append("【断语】" + result["judgment"])
+    out.append("【断语】" + humanize(result["judgment"], resolve))
     out.append("")
     out.append("【理由】（占者：大模型；引文已逐字校验）")
-    out.append(result["reasons"])
+    out.append(humanize(result["reasons"], resolve))
     out.append("")
     out.append("【建议】")
     for i, a in enumerate(result["advice"], 1):
-        out.append(f"  {i}. {a}")
+        out.append(f"  {i}. {humanize(a, resolve)}")
     return "\n".join(out)
 
 

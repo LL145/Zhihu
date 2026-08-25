@@ -188,6 +188,15 @@ class Session:
 
     # ── 呈现（结论先行，ALGORITHM.md 六） ────────────────────────────
 
+    def resolve_cite(self, cid):
+        """引文编号 → 古籍原名（跨易类与紫微两库）；未知编号返回 None。
+
+        编号只在校验层流转，对外展示一律经 report.humanize 换成原名。"""
+        for k in (self.kb, self.zkb):
+            if k.has(cid):
+                return k.citation(cid)["source"]
+        return None
+
     def header_text(self):
         parts = [f"所问：{self.question}",
                  f"类别：{self.tp.name}{report.topic_source_label(self.tp)}"]
@@ -252,7 +261,7 @@ class Session:
         note = self.vd["basis"]
         if len(text) > 120:   # 长文（如《论大限》全篇）节引，全文见 corpus
             text = text[:120] + "……"
-            note += f"；节引，全文：corpus --cite {self.vd['cite_id']}"
+            note += "；节引，全文可于 corpus 按书名查取"
         return "\n".join([
             f"【结论】{self.vd['action']}。",
             f"（定例断辞【{self.vd['verdict']}】，{audited}；"
@@ -267,7 +276,8 @@ class Session:
         所据原文节选 →（--full 卦画盘面）→ 存证 → 凭证 → 免责声明。"""
         parts = [self.header_text(), ""]
         if result is not None:
-            parts.append(report.render_interpretation(result))
+            parts.append(report.render_interpretation(result,
+                                                      self.resolve_cite))
         else:
             parts.append(self.degraded_conclusion_text())
         parts += ["", self.overview_text(), "", self.evidence_text()]
@@ -311,4 +321,4 @@ class Session:
                 cfg, self.zkb, self.question, self.chart, self.sel, self.vd,
                 self.first_result, self.history, ask, self.tp, self.contexts)
         self.history.append((ask, result))
-        return report.render_followup(result)
+        return report.render_followup(result, self.resolve_cite)

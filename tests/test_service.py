@@ -187,6 +187,9 @@ def test_interpret_and_followup_wiring(monkeypatch):
     assert "【结论】白话结论" in text                # 结论先行
     assert text.index("【结论】") < text.index("【断语】") < text.index("【理由】")
     assert "占断存证" in text and "SHA-256" in text  # 有条件可复现：输出留痕
+    # 引文编号只在校验层流转，展示换成古籍原名
+    assert "[ziwei:3:daxian]" not in text
+    assert "〔《紫微斗数全书》·卷三·论大限十年祸福何如〕" in text
     assert s.first_result is fake
 
     seen = {}
@@ -216,3 +219,17 @@ def test_degraded_conclusion_first():
     assert text.index("【结论】") < text.index("【理由】")
     assert "定例断辞" in text
     assert "── 起卦凭证" in text and "※ " in text
+
+
+def test_citations_render_as_book_names():
+    # 展示层 humanize：内部编号 → 古籍原名；未知编号原样保留不吞不改
+    from yijing_agent import report
+    s = _full()
+    out = report.humanize("断 [zhouyi:1:guaci]，取象 [shuogua:11:qian]，"
+                          "伪 [nothing:9]", s.resolve_cite)
+    assert "〔《周易·乾》卦辞〕" in out
+    assert "《说卦传》第十一章·乾〕" in out
+    assert "[nothing:9]" in out and "[zhouyi:1:guaci]" not in out
+    # 所据原文节选与降级输出全程无内部编号
+    import re
+    assert not re.search(r"\[[a-z]+:[0-9]", s.render_all())

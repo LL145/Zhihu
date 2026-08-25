@@ -87,7 +87,7 @@ def render_chart(chart):
 
 
 def render_readings_compact(zkb, sel):
-    """所据断语节选：主断条目附全文，其余只列出处与编号（全文见 corpus）。"""
+    """所据断语节选：主断条目附全文，其余只列古籍原名（全文见 corpus）。"""
     out = [f"── 所据断语（{sel.rule}；节选，全文见 corpus） " + "─" * 4]
     for note in sel.notes:
         out.append(f"  ※ {note}")
@@ -98,9 +98,9 @@ def render_readings_compact(zkb, sel):
             out.append(f"    {c['source']}：{c['text']}")
             for cid in r.context_ids:
                 ctx = zkb.citation(cid)
-                out.append(f"      · {ctx['source']}［{cid}］")
+                out.append(f"      · {ctx['source']}")
         else:
-            out.append(f"  ◇ {r.role}［{r.cite_id}］{c['source']}")
+            out.append(f"  ◇ {r.role}：{c['source']}")
     return "\n".join(out)
 
 

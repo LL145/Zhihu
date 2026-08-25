@@ -47,6 +47,18 @@ def test_search_limit_and_errors():
         corpus.search("abc123")
 
 
+def test_find_source_by_book_name(capsys):
+    # 对外展示只列古籍原名，故 --cite 也认书名（唯一命中即出全文）
+    assert corpus.find_source("体用总诀") == \
+        [("meihua:2:tiyong", "《梅花易数》·卷二·体用总诀")]
+    assert corpus.main(["--cite", "体用总诀"]) == 0
+    assert "体用云者" in capsys.readouterr().out
+    # 同名多条：列候选并提示写全，不瞎猜
+    assert corpus.main(["--cite", "卦辞"]) == 1
+    out = capsys.readouterr().out
+    assert "同名" in out and "《周易·履》卦辞" in out
+
+
 def test_cli(capsys):
     assert corpus.main(["--catalog"]) == 0
     assert "藏书" not in capsys.readouterr().err

@@ -11,8 +11,12 @@
 
 命令行（数据模块自查用，亦可日常翻书）：
     python -m yijing_agent.corpus 大衍之数            # 关键词检索
-    python -m yijing_agent.corpus --cite xici:shang:9  # 按编号取全文
+    python -m yijing_agent.corpus --cite 体用总诀      # 按古籍原名取全文
+    python -m yijing_agent.corpus --cite xici:shang:9  # 按内部编号取全文
     python -m yijing_agent.corpus --catalog            # 藏书目录
+
+对外展示一律用古籍原名（内部编号 cite_id 只在校验层流转），故 --cite
+两者皆认：编号未中即按出处名（去标点）片段查，唯一命中即出全文。
 """
 
 import argparse
@@ -108,6 +112,18 @@ def get(cite_id):
     raise KeyError(f"未知引文编号: {cite_id}（检索可用 search()）")
 
 
+def find_source(name):
+    """按古籍原名（出处名之片段，去标点比对）找单元 → [(cite_id, source)]。
+
+    对外展示只列原名不列编号，此函数即「按书名取全文」的入口。
+    """
+    nq, _ = _norm_map(name)
+    if not nq:
+        return []
+    return [(cid, source) for cid, source, *_rest in _units()
+            if nq in _norm_map(source)[0]]
+
+
 def search(query, limit=8, context=18):
     """标点无关关键词检索 → [{cite_id, source, snippet, count}, …]。
 
@@ -139,7 +155,8 @@ def main(argv=None):
         prog="python -m yijing_agent.corpus",
         description="藏书检索：关键词查典籍、按引文编号取全文、看藏书目录")
     ap.add_argument("query", nargs="*", help="检索关键词（标点无关）")
-    ap.add_argument("--cite", help="按引文编号取全文，如 xici:shang:9")
+    ap.add_argument("--cite", help="按古籍原名（如 体用总诀）或内部编号"
+                                   "（如 xici:shang:9）取全文")
     ap.add_argument("--catalog", action="store_true", help="打印藏书目录")
     ap.add_argument("--limit", type=int, default=8, help="检索结果条数上限")
     args = ap.parse_args(argv)
@@ -156,8 +173,19 @@ def main(argv=None):
         try:
             c = get(args.cite)
         except KeyError as e:
-            print(e.args[0])
-            return 1
+            matches = find_source(args.cite)
+            if len(matches) == 1:
+                c = get(matches[0][0])
+            elif matches:
+                print(f"「{args.cite}」有 {len(matches)} 条同名，请写得更全：")
+                for cid, source in matches[:12]:
+                    print(f"  {source}（{cid}）")
+                if len(matches) > 12:
+                    print(f"  ……余 {len(matches) - 12} 条略")
+                return 1
+            else:
+                print(e.args[0])
+                return 1
         print(f"{c['source']}（{c['cite_id']}）")
         print(c["text"])
         return 0
