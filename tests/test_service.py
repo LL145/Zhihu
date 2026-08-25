@@ -21,6 +21,24 @@ def test_event_routing():
     assert "起卦凭证" in s.repro_text()
 
 
+def test_event_zi_method():
+    # 字占：卦由所占之字（姓名笔画）确定，与时刻无关；选文走梅花体用
+    s = service.prepare("近期换工作是否合适", when=WHEN, method="zi",
+                        chars="李明")
+    assert isinstance(s, service.EventSession)
+    assert s.cast.method == "meihua_zi"
+    assert "体用" in s.sel.rule
+    assert "字占" in s.repro_text() and "西林寺牌额占" in s.repro_text()
+    later = service.prepare("近期换工作是否合适", when=datetime(2027, 1, 1),
+                            method="zi", chars="李明")
+    assert later.cast.lines == s.cast.lines
+
+
+def test_event_zi_method_invalid_chars():
+    with pytest.raises(ValueError):
+        service.prepare("近期换工作是否合适", when=WHEN, method="zi", chars="李")
+
+
 def test_chart_routing_with_birth():
     s = service.prepare("我今年运势如何", when=WHEN, birth_dt=BIRTH, gender="男")
     assert isinstance(s, service.ChartSession) and s.kind == "chart"

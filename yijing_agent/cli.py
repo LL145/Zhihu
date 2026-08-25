@@ -3,6 +3,7 @@
 用法示例：
     python -m yijing_agent -q "近期换工作是否合适"
     python -m yijing_agent -q "……" --method coin
+    python -m yijing_agent -q "……" --method zi --chars 李明
     python -m yijing_agent -q "……" --when "2026-08-24 15:30" --no-llm
     python -m yijing_agent -q "我今年运势如何" --birth 2000-09-14 --birth-time 午 --gender 男
 
@@ -149,10 +150,11 @@ def _llm_block(cfg, run_interpret, run_followup):
         print("已降级为仅原文与结论的输出。")
 
 
-def _run_dual(question, tp, when, method, salt, birth, no_llm):
+def _run_dual(question, tp, when, method, salt, chars, birth, no_llm):
     """卦盘并占：盘断其势 + 卦断其事，并陈不合断（各自定例/占断/存证）。"""
     s = service.prepare(question, method=method, when=when, salt=salt,
-                        birth_dt=birth[0], gender=birth[1], tp=tp, both=True)
+                        chars=chars, birth_dt=birth[0], gender=birth[1],
+                        tp=tp, both=True)
     print()
     print(s.body_text())
     print()
@@ -221,11 +223,14 @@ def main(argv=None):
         prog="yijing_agent",
         description="有典可依、可复现的占断：易经事引擎 + 紫微命引擎（卦断事，盘论人）")
     p.add_argument("-q", "--question", help="所问之事（不传则进入交互输入）")
-    p.add_argument("--method", choices=["time", "coin"], default="time",
-                   help="起卦法：time=梅花易数时间起卦（默认，完全确定）；coin=铜钱法")
+    p.add_argument("--method", choices=["time", "coin", "zi"], default="time",
+                   help="起卦法：time=梅花易数时间起卦（默认，完全确定）；"
+                        "coin=铜钱法；zi=字占（以姓名等两三字之笔画起卦，与时刻无关）")
     p.add_argument("--when", help="指定起卦/论限时刻 YYYY-MM-DD HH:MM，按北京时间"
                                   "（默认取当前时刻并自动换算为北京时间；用于复现）")
     p.add_argument("--salt", default="", help="铜钱法附加盐（同刻同问再占时区分用）")
+    p.add_argument("--chars", default="", help="字占所占之字（两三字，如姓名；"
+                                               "--method zi 用）")
     p.add_argument("--birth", help="出生日期（公历 YYYY-MM-DD）：命理类问题走紫微排盘；"
                                    "问具体事时命盘作合参语境（不改卦断）")
     p.add_argument("--birth-time", help="出生时辰（时辰名如「午」，或钟点如 11:30；缺则无法排盘）")
@@ -266,12 +271,27 @@ def main(argv=None):
         return 0
     when = _parse_when(args.when) if args.when else lunar.now_beijing()
 
+    chars = args.chars.strip()
+    if args.method == "zi" and not chars:
+        if interactive and _is_tty():
+            try:
+                chars = input("所占之字（两三字，如姓名）：").strip()
+            except (EOFError, KeyboardInterrupt):
+                return 1
+        if not chars:
+            print("字占需提供所占之字：--chars 姓名")
+            return 1
+
     if tp.engine_hint == "chart":
         birth = _resolve_birth(args, allow_prompt=interactive)
         if birth:
             if args.both:
-                _run_dual(question, tp, when, args.method, args.salt, birth,
-                          args.no_llm)
+                try:
+                    _run_dual(question, tp, when, args.method, args.salt,
+                              chars, birth, args.no_llm)
+                except ValueError as e:
+                    print(e)
+                    return 1
             else:
                 _run_chart(question, tp, when, birth[0], birth[1], args.no_llm)
             if interactive and getattr(sys, "frozen", False):
@@ -284,6 +304,12 @@ def main(argv=None):
     kb = KnowledgeBase()
     if args.method == "time":
         cast = casting.cast_meihua(when)
+    elif args.method == "zi":
+        try:
+            cast = casting.cast_zi(chars)
+        except ValueError as e:
+            print(e)
+            return 1
     else:
         cast = casting.cast_coin(question, when, args.salt)
 

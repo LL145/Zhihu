@@ -60,6 +60,57 @@ def test_meihua_always_one_moving():
         assert all(v in (6, 7, 8, 9) for v in cast.lines)
 
 
+def test_strokes_table_known():
+    from yijing_agent import strokes
+    assert strokes.total_strokes("李") == 7
+    assert strokes.total_strokes("明") == 8
+    assert strokes.total_strokes("林") == 8
+    assert strokes.total_strokes("西") == 6   # 古书记七画（西林寺占），约定依今表
+    assert strokes.total_strokes("A") is None
+
+
+def test_zi_two_chars_known():
+    # 李7画→艮上卦，明8画→坤下卦，总15画%6=3动爻 → 山地剥
+    # （与西林寺牌额占「上七画下八画总十五画……是山地剥卦」同构）
+    cast = casting.cast_zi("李明")
+    ben_id = kb.id_of(cast.ben_binary)
+    assert kb.hexagram(ben_id)["trigrams"] == ["坤", "艮"]  # 下坤上艮 = 山地剥
+    assert kb.full_name(ben_id) == "山地剥"
+    assert cast.moving == [3]
+
+
+def test_zi_three_chars_known():
+    # 三字为三才：王4画→震上卦；小3+明8=11, 11%8=3→离下卦；总15画%6=3动爻
+    cast = casting.cast_zi("王小明")
+    ben_id = kb.id_of(cast.ben_binary)
+    assert kb.hexagram(ben_id)["trigrams"] == ["离", "震"]  # 下离上震 = 雷火丰
+    assert kb.full_name(ben_id) == "雷火丰"
+    assert cast.moving == [3]
+
+
+def test_zi_deterministic_and_time_free():
+    # 纯由所占之字确定：与时刻无关，空白忽略
+    a, b = casting.cast_zi("李明"), casting.cast_zi(" 李 明 ")
+    assert a.lines == b.lines
+    assert a.method == "meihua_zi"
+
+
+def test_zi_lines_valid():
+    for name in ("张伟", "王芳", "诸葛亮", "司马光", "龘靐"):
+        cast = casting.cast_zi(name)
+        assert len(cast.moving) == 1
+        assert all(v in (6, 7, 8, 9) for v in cast.lines)
+        assert tuple(cast.ben_binary) in kb.by_binary
+        assert tuple(cast.zhi_binary) in kb.by_binary
+
+
+def test_zi_rejects_out_of_scope():
+    # 空、一字（须辨左右阴阳画）、四字以上（古法改平仄）、非汉字：如实拒之
+    for bad in ("", "李", "欧阳明月", "AB", "李A"):
+        with pytest.raises(ValueError):
+            casting.cast_zi(bad)
+
+
 def test_coin_deterministic_by_seed():
     dt = datetime(2026, 8, 24, 15, 30, 0)
     a = casting.cast_coin("问某事", dt)

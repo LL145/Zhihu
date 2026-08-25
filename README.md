@@ -100,6 +100,10 @@ py -m yijing_agent -q "所问之事"
 # 铜钱法·六爻：随机种子公开（SHA-256），凭证可复现
 py -m yijing_agent -q "所问之事" --method coin
 
+# 字占：以姓名等两三字之笔画起卦（《梅花易数》卷一字画占例），与时刻无关
+# ——多人同刻各占各的，人不同则卦不同
+py -m yijing_agent -q "所问之事" --method zi --chars 李明
+
 # 指定起卦时刻（北京时间；复现旧卦 / 测试用）
 py -m yijing_agent -q "所问之事" --when "2026-08-24 15:30"
 
@@ -176,7 +180,9 @@ py -m yijing_agent -q "我今年财运如何" --birth 2000-09-14 --birth-time �
 
 ```
 yijing_agent/
-  casting.py     起卦引擎：梅花易数时间起卦（无随机数）/ 铜钱法（种子公开）
+  casting.py     起卦引擎：梅花易数时间起卦（无随机数）/ 字占（姓名笔画，
+                 依卷一字画占例）/ 铜钱法（种子公开）
+  strokes.py     汉字笔画表查询（data/strokes.json，Unihan kTotalStrokes）
   selection.py   断卦规则：朱熹《易学启蒙》占法 + 《梅花易数》体用
   verdict.py     断辞 → 定例结论映射（确定性对照基准；人工审定走
                  data/verdict_overrides.json）
@@ -200,15 +206,17 @@ yijing_agent/
   data/          知识库数据与校对说明（见 data/PROOFREADING.md）
                  hexagrams.json 经传原文；wangbi.json 王弼《周易注》；
                  yizhuan.json 说卦传＋乾坤文言；meihua.json 《梅花易数》
-                 体用总诀与十八占；ziwei.json 《紫微斗数全书》断语库（429 条）
+                 体用总诀与十八占；ziwei.json 《紫微斗数全书》断语库（429 条）；
+                 strokes.json 汉字笔画表（Unicode Unihan kTotalStrokes）
 tools/
   import_openiching.py        从 open-iching 仓库导入并校验典籍数据
   import_wikisource_wangbi.py 从维基文库《周易正義》导入王弼注（经文锚定对齐）
   import_wikisource_yizhuan.py 从维基文库《周易正義》导入说卦传与乾坤文言
   import_wikisource_meihua.py 从维基文库《梅花易數》卷二导入体用总诀与十八占
   import_wikisource_ziwei.py  从维基文库《紫微斗數全書》导入紫微库
+  import_unihan_strokes.py    从 Unicode 官方 Unihan 导入汉字笔画表（字占用）
   gen_ziwei_fixtures.py       以 py-iztro 生成排盘命例回归集（开发机用）
-tests/           191 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
+tests/           199 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
                  注疏与文言挂载、说卦体用取象、占章按类附取、引文校验、
                  LLM 重试与追问；紫微排盘 21 命例
                  回归（对照 iztro）、安星诀明文例、紫微库完整性、选文与

@@ -183,7 +183,7 @@ def select_zhuzi(kb: KnowledgeBase, ben_id: int, zhi_id: int, moving: list) -> S
 def select(kb: KnowledgeBase, method: str, ben_id: int, zhi_id: int,
            moving: list, tp=None, question=None) -> Selection:
     """tp 与 question 只在梅花法下决定占章附取，不影响朱子占法选文。"""
-    if method == "meihua_time":
-        assert len(moving) == 1, "梅花时间起卦应恰有一个动爻"
+    if method in ("meihua_time", "meihua_zi"):
+        assert len(moving) == 1, "梅花起卦应恰有一个动爻"
         return select_meihua(kb, ben_id, zhi_id, moving[0], tp, question)
     return select_zhuzi(kb, ben_id, zhi_id, moving)

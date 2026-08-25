@@ -20,6 +20,7 @@ from .llm import InterpreterError
 from .trigrams import ZHI
 
 _TITLE = "算命 Agent —— 有典可依、可复现（卦断事，盘论人）"
+_METHODS = {"时间起卦": "time", "铜钱法": "coin", "姓名字占": "zi"}
 _SHICHEN_CHOICES = ["未知"] + [z + "时" for z in ZHI]
 # 出生年份下拉范围：今年（北京时间）起倒排至 1920（cnlunar 支持下限之内）
 _YEAR_CHOICES = [""] + [str(y) for y in range(lunar.now_beijing().year, 1919, -1)]
@@ -69,10 +70,15 @@ class App(ttk.Frame):
             width=8, state="readonly")
         self.topic_box.current(0)
         self.topic_box.pack(side="left", padx=(4, 0))
-        self.method = ttk.Combobox(row1, values=["时间起卦", "铜钱法"],
-                                   width=8, state="readonly")
+        self.method = ttk.Combobox(row1, values=list(_METHODS), width=8,
+                                   state="readonly")
         self.method.current(0)
         self.method.pack(side="left", padx=4)
+        self.method.bind("<<ComboboxSelected>>", self._method_changed)
+        ttk.Label(row1, text="之字：").pack(side="left")
+        self.zi_entry = ttk.Entry(row1, width=8)
+        self.zi_entry.configure(state="disabled")   # 仅字占用（如姓名）
+        self.zi_entry.pack(side="left", padx=(0, 4))
         self.run_btn = ttk.Button(row1, text="起卦 / 排盘", command=self.run)
         self.run_btn.pack(side="left")
 
@@ -147,6 +153,10 @@ class App(ttk.Frame):
         if cur not in days:            # 如 31 日遇小月：清空令用户重选
             self.birth_d.set("")
 
+    def _method_changed(self, _event=None):
+        on = _METHODS[self.method.get()] == "zi"
+        self.zi_entry.configure(state="normal" if on else "disabled")
+
     # ── 输出辅助 ────────────────────────────────────────────────────
 
     def _clear(self):
@@ -188,7 +198,11 @@ class App(ttk.Frame):
         except ValueError as e:
             messagebox.showwarning(_TITLE, str(e))
             return
-        method = "time" if self.method.get() == "时间起卦" else "coin"
+        method = _METHODS[self.method.get()]
+        chars = self.zi_entry.get().strip() if method == "zi" else ""
+        if method == "zi" and not chars:
+            messagebox.showinfo(_TITLE, "字占请输入所占之字（两三字，如姓名）。")
+            return
         chosen = self.topic_box.get()
         override = {n: k for k, n in topic.CATEGORIES}.get(chosen)
         self._clear()
@@ -200,23 +214,25 @@ class App(ttk.Frame):
         self._set_status("推演中（判类·起卦/排盘·选文）……")
         threading.Thread(
             target=self._prepare_worker,
-            args=(token, question, method, birth, override, cfg,
+            args=(token, question, method, chars, birth, override, cfg,
                   self.both_var.get()),
             daemon=True).start()
 
-    def _prepare_worker(self, token, question, method, birth, override, cfg,
-                        both):
+    def _prepare_worker(self, token, question, method, chars, birth, override,
+                        cfg, both):
         """判类（规则→占者判类）与全部确定性步骤在工作线程完成，不卡界面。"""
         try:
             tp = service.resolve_topic(
                 question, cfg=cfg if cfg["api_key"] else None,
                 override=override)
             session = service.prepare(
-                question, method=method,
+                question, method=method, chars=chars,
                 birth_dt=birth[0] if birth else None,
                 gender=birth[1] if birth else None, tp=tp, both=both)
             self._q.put(("prepared", token, session, cfg))
         except service.RefusalError as e:
+            self._q.put(("refused", token, str(e)))
+        except ValueError as e:                   # 字占之字不合法等，如实回显
             self._q.put(("refused", token, str(e)))
         except Exception as e:                    # 判类网络异常等不砸界面
             self._q.put(("refused", token, f"出错：{e}"))

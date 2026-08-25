@@ -47,15 +47,16 @@ def resolve_topic(question, cfg=None, override=None):
     return tp
 
 
-def prepare(question, *, method="time", when=None, salt="",
+def prepare(question, *, method="time", when=None, salt="", chars="",
             birth_dt=None, gender=None, tp=None, both=False):
     """路由并完成全部确定性步骤，返回会话对象。
 
     命格/时运类问题且生辰齐备（出生日期时辰 + 性别）→ 紫微命引擎；
     其余 → 易经事引擎。红线问题抛 RefusalError。
     tp 可传入 resolve_topic 的结果（判类三级）；缺省按关键词规则判类。
-    both=True 时，命理之问且生辰齐备走卦盘并占（两问两断，DualSession）；
-    不满足并占条件则照常路由（开关静默不生效）。
+    chars 为字占（method="zi"）所占之字（如姓名），两三字；不合法抛
+    ValueError。both=True 时，命理之问且生辰齐备走卦盘并占（两问两断，
+    DualSession）；不满足并占条件则照常路由（开关静默不生效）。
     """
     question = (question or "").strip()
     if not question:
@@ -68,9 +69,10 @@ def prepare(question, *, method="time", when=None, salt="",
     if tp.engine_hint == "chart" and birth_dt is not None and gender:
         if both:
             return DualSession(question, tp, when, method, salt,
-                               birth_dt, gender)
+                               birth_dt, gender, chars=chars)
         return ChartSession(question, tp, when, birth_dt, gender)
-    return EventSession(question, tp, when, method, salt, birth_dt, gender)
+    return EventSession(question, tp, when, method, salt, birth_dt, gender,
+                        chars=chars)
 
 
 class _Session:
@@ -112,12 +114,14 @@ class EventSession(_Session):
     kind = "event"
 
     def __init__(self, question, tp, when, method, salt,
-                 birth_dt=None, gender=None, chart_hint=True):
+                 birth_dt=None, gender=None, chart_hint=True, chars=""):
         super().__init__(question, tp)
         self.kb = KnowledgeBase()
         self.chart_hint = chart_hint
         if method == "time":
             self.cast = casting.cast_meihua(when)
+        elif method == "zi":
+            self.cast = casting.cast_zi(chars)
         else:
             self.cast = casting.cast_coin(question, when, salt)
         ben = self.kb.id_of(self.cast.ben_binary)
@@ -218,13 +222,14 @@ class DualSession:
 
     kind = "dual"
 
-    def __init__(self, question, tp, when, method, salt, birth_dt, gender):
+    def __init__(self, question, tp, when, method, salt, birth_dt, gender,
+                 chars=""):
         self.question = question
         self.tp = tp
         self.chart = ChartSession(question, tp, when, birth_dt, gender)
         # 卦侧不传生辰：盘已完整在场，不再作合参语境（避免重复入池）
         self.event = EventSession(question, tp, when, method, salt,
-                                  chart_hint=False)
+                                  chart_hint=False, chars=chars)
 
     @property
     def first_result(self):
