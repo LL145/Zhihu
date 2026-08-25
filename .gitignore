@@ -7,5 +7,4 @@ config.json
 *.spec
 build/
 dist/
-.cache_ziwei/
-.cache_wangbi/
+.cache_*/

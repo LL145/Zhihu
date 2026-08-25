@@ -42,6 +42,15 @@
     meihua:2:zhan:{章}        卷二十八占之占章（如 meihua:2:zhan:hunyin），
                               按问事类别附取（selection.TOPIC_ZHAN）。
     占法之书原文，可引为据；不参与定例断辞。
+
+六爻纳甲典籍层（藏书；v4 六爻起卦之典据先行，不入现行选文，
+data/{jingfang,huozhulin,huangjince}.json，见 tools/import_wikisource_liuyao.py）：
+    jingfang:{hid}            《京氏易传》八宫六十四卦逐卦本文
+                              （hid 为周易通行卦序 id，只取京氏本文不取注）。
+    jingfang:xia:{n}          卷下总说／算法／总结。
+    huozhulin:{n}             《火珠林》逐节（原书「注云」注文并入正文）。
+    huangjince:{n}            《黄金策》逐章（总断千金赋、天时……何知章）。
+    占法之书原文，可检索可引用；不参与定例断辞。
 """
 
 import json
@@ -53,6 +62,13 @@ DATA_PATH = Path(__file__).parent / "data" / "hexagrams.json"
 WANGBI_PATH = Path(__file__).parent / "data" / "wangbi.json"
 YIZHUAN_PATH = Path(__file__).parent / "data" / "yizhuan.json"
 MEIHUA_PATH = Path(__file__).parent / "data" / "meihua.json"
+
+#: 六爻纳甲典籍层：cite_id 前缀 → 数据文件
+LIUYAO_PATHS = {
+    "jingfang": Path(__file__).parent / "data" / "jingfang.json",
+    "huozhulin": Path(__file__).parent / "data" / "huozhulin.json",
+    "huangjince": Path(__file__).parent / "data" / "huangjince.json",
+}
 
 
 def wangbi_id(scripture_cite_id):
@@ -84,7 +100,8 @@ def _wenyan_label(gua_name, part):
 
 class KnowledgeBase:
     def __init__(self, path=DATA_PATH, wangbi_path=WANGBI_PATH,
-                 yizhuan_path=YIZHUAN_PATH, meihua_path=MEIHUA_PATH):
+                 yizhuan_path=YIZHUAN_PATH, meihua_path=MEIHUA_PATH,
+                 liuyao_paths=None):
         raw = json.loads(Path(path).read_text("utf-8"))
         self.meta = raw["meta"]
         self.by_id = {h["id"]: h for h in raw["hexagrams"]}
@@ -164,6 +181,21 @@ class KnowledgeBase:
                           unit["text"])
         else:
             self.meihua_meta = None
+
+        # 六爻纳甲典籍层：京氏易传、火珠林、黄金策（藏书，不入现行选文）
+        self.liuyao_meta = {}
+        for key, lp in (liuyao_paths if liuyao_paths is not None
+                        else LIUYAO_PATHS).items():
+            lp = Path(lp)
+            if not lp.exists():
+                self.liuyao_meta[key] = None
+                continue
+            data = json.loads(lp.read_text("utf-8"))
+            self.liuyao_meta[key] = data["meta"]
+            short = data["meta"]["short"]
+            for unit in data["units"]:
+                self._add(f"{key}:{unit['id']}",
+                          f"《{short}》·{unit['title']}", unit["text"])
 
     def commentary(self, scripture_cite_id):
         """经文单元的王弼注 citation（无注返回 None）。"""

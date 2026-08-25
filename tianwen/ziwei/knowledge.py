@@ -11,6 +11,21 @@ tools/import_wikisource_ziwei.py）：
                                   guanlu:ding{n} 为官禄宫「定公卿」等断诀）
     ziwei:1:wenda:{star}          卷一·诸星问答论
     ziwei:3:daxian / erxian       卷三·论大限十年祸福何如 / 论二限太岁吉凶
+
+紫微库二期（卷一赋文与格局诸诀，格局识别之典据；解读语境用）：
+    ziwei:1:fu:{seg}              赋文诸论整节一条（taiwei 太微赋、
+                                  xingxing 形性赋、xingyuan 星垣论、
+                                  zhunsheng 斗数准绳、fawei 斗数发微论、
+                                  goulv 重补斗数彀率、zengtaiwei 增补太微赋、
+                                  gusui 斗数骨髓赋、nvgusui 女命骨髓赋、
+                                  dedifugui／shixianpinjian 十二宫诸星
+                                  得地富贵论／失陷贫贱论）
+    ziwei:1:shideng:{n}           定富贵贫贱十等论，逐行一论
+    ziwei:1:hege:{branch}         十二宫诸星得地合格诀，按安命宫支
+                                  （branches 记宫支；底本「戍」归一作「戌」）
+    ziwei:1:poge:{n}              十二宫诸星失陷破格诀，行可兼数宫支
+    ziwei:1:ju:{cat}:{n}          定富局(fu)/定贵局(gui)/定贫贱局(pinjian)/
+                                  定杂局(za)，逐行一局（局名在 source）
 """
 
 import json

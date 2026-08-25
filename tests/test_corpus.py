@@ -8,7 +8,8 @@ from tianwen import corpus
 def test_catalog_lists_all_books():
     cat = corpus.catalog()
     keys = [b["key"] for b in cat]
-    assert keys == ["zhouyi", "yizhuan", "wangbi", "meihua", "ziwei",
+    assert keys == ["zhouyi", "yizhuan", "wangbi", "meihua",
+                    "jingfang", "huozhulin", "huangjince", "ziwei",
                     "strokes"]
     for b in cat:
         assert b["units"] > 0 and b["license"], b["key"]
