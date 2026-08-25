@@ -14,17 +14,32 @@
                               wangbi:1:tuan、wangbi:2:xiaoxiang:extra。
     注疏只作解读语境与引文来源，不参与断辞结论。
 
-易传补编（十翼之说卦、文言，data/yizhuan.json）：
+易传补编（十翼之说卦、系辞、序卦、杂卦、文言，data/yizhuan.json）：
     shuogua:{章}[:{卦}]       说卦传，依朱子《周易本义》章次；类象诸章
                               按八卦再分（如 shuogua:11:qian 乾之广象）。
+    xici:{shang|xia}:{章}     系辞上下传，章次依所据《易傳》页面
+                              （上十二章、下九章）。大衍筮法出
+                              xici:shang:9，太极两仪出 xici:shang:11。
+    xugua:{shang|xia}         序卦传上下篇。
+    zagua:1                   杂卦传。
     wenyan:{卦id}:{部位…}     乾坤文言，按所释经文单元锚定（wenyan:1:guaci、
                               wenyan:1:yao:3、wenyan:1:extra……）。
-    二者皆孔门传文（经传原文，可引为据）；说卦供梅花体用取象，
-    文言挂乾坤经文单元随选文自动附入。均不参与定例断辞。
+    以上皆孔门传文（经传原文，可引为据）；说卦供梅花体用取象，
+    文言挂乾坤经文单元随选文自动附入，系辞、序卦、杂卦为可检索
+    可引用之全文语料。均不参与定例断辞。
 
-梅花占诀（《梅花易数》卷二，data/meihua.json）：
-    meihua:2:tiyong           体用总诀（梅花断法之纲，梅花法恒附）。
-    meihua:2:zhan:{章}        十八占之占章（如 meihua:2:zhan:hunyin），
+梅花语料（《梅花易数》卷一、卷二，data/meihua.json）：
+    meihua:1:qi:{法}          卷一起卦诸法（qi:shijian 年月日时起例、
+                              qi:zi 字占、qi:zishu 一字占至十一字占……），
+                              起卦引擎（casting.py）所引原文皆在此。
+    meihua:1:li:{例}          卷一占例（li:guanmei 观梅占、
+                              li:xilinsi 西林寺牌额占……）。
+    meihua:1:xiang:…          卷一八卦类象与八卦万物属类
+                              （xiang:wanwu:{卦} 逐卦一单元）。
+    meihua:1:{余}             卷一其余基础章（guashu 周易卦数、
+                              guachu 卦以八除、hou:* 端法诸占附诀……）。
+    meihua:2:tiyong           卷二体用总诀（梅花断法之纲，梅花法恒附）。
+    meihua:2:zhan:{章}        卷二十八占之占章（如 meihua:2:zhan:hunyin），
                               按问事类别附取（selection.TOPIC_ZHAN）。
     占法之书原文，可引为据；不参与定例断辞。
 """
@@ -53,7 +68,8 @@ def wangbi_id(scripture_cite_id):
 
 
 _YAO_CH = {1: "初", 2: "二", 3: "三", 4: "四", 5: "五", 6: "上"}
-_CH_NUM = ("零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一")
+_CH_NUM = ("零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十",
+           "十一", "十二")
 
 
 def _wenyan_label(gua_name, part):
@@ -122,17 +138,30 @@ class KnowledgeBase:
                 scid = f"zhouyi:{hid}:{part}"
                 assert scid in self._citations, f"文言挂在未知经文单元: {scid}"
                 self._wenyan[scid] = self._citations[wid]
+            _pian = {"shang": "上", "xia": "下"}
+            for unit in yz.get("xici", []):
+                part, n = unit["id"].split(":")
+                self._add(f"xici:{unit['id']}",
+                          f"《系辞{_pian[part]}传》第{_CH_NUM[int(n)]}章",
+                          unit["text"])
+            for unit in yz.get("xugua", []):
+                self._add(f"xugua:{unit['id']}",
+                          f"《序卦传》{_pian[unit['id']]}篇", unit["text"])
+            for unit in yz.get("zagua", []):
+                self._add(f"zagua:{unit['id']}", "《杂卦传》", unit["text"])
         else:
             self.yizhuan_meta = None
 
-        # 梅花占诀：《梅花易数》卷二体用总诀与十八占
+        # 梅花语料：《梅花易数》卷一起卦诸法与占例、卷二体用总诀与十八占
         mp = Path(meihua_path) if meihua_path else None
         if mp and mp.exists():
             mh = json.loads(mp.read_text("utf-8"))
             self.meihua_meta = mh["meta"]
             for unit in mh["units"]:
+                juan = {"1": "一", "2": "二"}[unit["id"].split(":", 1)[0]]
                 self._add(f"meihua:{unit['id']}",
-                          f"《梅花易数》·卷二·{unit['title']}", unit["text"])
+                          f"《梅花易数》·卷{juan}·{unit['title']}",
+                          unit["text"])
         else:
             self.meihua_meta = None
 
@@ -149,6 +178,10 @@ class KnowledgeBase:
 
     def citation(self, cite_id):
         return self._citations[cite_id]
+
+    def citations(self):
+        """全部引文单元（corpus 检索层遍历用）。"""
+        return self._citations.values()
 
     def has(self, cite_id):
         return cite_id in self._citations

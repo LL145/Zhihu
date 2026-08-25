@@ -1,4 +1,4 @@
-"""从中文维基文库《周易正義》导入易传补编：说卦传 + 乾坤文言。
+"""从中文维基文库导入易传补编：说卦 + 系辞上下 + 序卦 + 杂卦 + 乾坤文言。
 
 来源（CC BY-SA 4.0；经传原文为公版，页面标点为维基文库贡献者所加）：
   - 说卦：周易正義/09.01 至 09.11 各页之经文部分（{{*|韩康伯注}}
@@ -8,6 +8,12 @@
   - 文言：周易正義/01乾（{{+|经文}} 模板体例）与 01坤（裸行体例）
     页面《文言》曰以下之传文，按所释经文单元（卦辞/爻位/用九）
     锚定归段。锚点表为手工整理（记入 meta），文本本身逐字出自页面。
+  - 系辞上下、序卦、杂卦：白文《易傳》页面（易傳/繫辭上、繫辭下、
+    序卦、雜卦）。不取《周易正義》卷七、卷八、卷十、卷十一者，因
+    彼处韩康伯注有未走 {{*|}} 模板、与传文裸行混排者，机器无法
+    可靠剥离；白文页面无注，逐字可据。章次依页面所分（系辞上
+    十二章、下九章），杂卦页面另有「校詁版」一节不取（异文记入
+    meta.variants）。
 
 用法：
     python tools/import_wikisource_yizhuan.py [--cache-dir DIR] [--out FILE]
@@ -206,6 +212,79 @@ def parse_shuogua(pages_text, warnings):
     return units
 
 
+# ── 系辞 / 序卦 / 杂卦（白文《易傳》页面）────────
+
+XICI_PAGES = {"shang": "易傳/繫辭上", "xia": "易傳/繫辭下"}
+XUGUA_PAGE = "易傳/序卦"
+ZAGUA_PAGE = "易傳/雜卦"
+
+_CH_ORDER = ("一", "二", "三", "四", "五", "六", "七", "八", "九",
+             "十", "十一", "十二")
+
+
+def parse_plain_sections(text):
+    """白文《易傳》页面 → {节名简体: 正文}。二级节（== 第一章 ==），
+    段落以换行相接；{{gap}}/链接/转换标记剥除，行首 : 缩进剥除。"""
+    sections, current, buf = {}, None, []
+
+    def flush():
+        if current is not None:
+            sections[current] = "\n".join(buf).strip()
+
+    for raw in text.splitlines():
+        s = raw.strip()
+        m = re.fullmatch(r"==\s*([^=].*?)\s*==", s)
+        if m:
+            flush()
+            current, buf = t2s(m.group(1)), []
+            continue
+        s = s.lstrip(":").strip()
+        if not s or s.startswith(("{{Header", "{{header", "{{NoteTA",
+                                  "{{footer", "----", "__")):
+            continue
+        s = re.sub(r"'{2,}", "", s)
+        s = re.sub(r"\{\{[Gg]ap\}\}", "", s)
+        s = t2s(clean_wiki(re.sub(r"\{\{[^{}]*\}\}", "", s)))
+        if s:
+            buf.append(s)
+    flush()
+    return sections
+
+
+def parse_xici(part, text, warnings):
+    """系辞上/下页面 → [(章号, text)]。章节名须为「第N章」且连续。"""
+    sections = parse_plain_sections(text)
+    units = []
+    for n, ch in enumerate(_CH_ORDER, 1):
+        name = f"第{ch}章"
+        if name not in sections:
+            break
+        assert sections[name], f"系辞{part} {name} 为空"
+        units.append((n, sections[name]))
+    leftover = set(sections) - {f"第{c}章" for c in _CH_ORDER[:len(units)]}
+    if leftover:
+        warnings.append(f"系辞{part} 页面有未取节: {sorted(leftover)}")
+    return units
+
+
+def parse_xugua(text):
+    """序卦页面 → {"shang": text, "xia": text}。"""
+    sections = parse_plain_sections(text)
+    assert "上篇" in sections and "下篇" in sections, \
+        f"序卦应分上下篇，实得: {sorted(sections)}"
+    return {"shang": sections["上篇"], "xia": sections["下篇"]}
+
+
+def parse_zagua(text, warnings):
+    """杂卦页面 → 正文。只取「一篇」；「校詁版」为整理者参校本，不取。"""
+    sections = parse_plain_sections(text)
+    assert "一篇" in sections, f"杂卦「一篇」未找到: {sorted(sections)}"
+    skipped = sorted(set(sections) - {"一篇"})
+    if skipped != ["校诂版"]:
+        warnings.append(f"杂卦页面节名有变: {sorted(sections)}")
+    return sections["一篇"]
+
+
 # ── 文言 ────────────────────────────────
 
 #: 归段锚点（手工整理；长键优先匹配）。文本逐字出自页面，锚点只定归属。
@@ -322,6 +401,34 @@ def main():
                 wenyan[f"{hid}:{part}"] = body
         time.sleep(0.5)
 
+    # 系辞上下、序卦、杂卦（白文《易傳》页面）
+    xici = []
+    for part, title in XICI_PAGES.items():
+        oldid, text = fetch_page(title, args.cache_dir)
+        pages_meta[title] = oldid
+        for n, body in parse_xici(part, text, warnings):
+            xici.append({"id": f"{part}:{n}", "text": body})
+        time.sleep(0.5)
+    n_shang = sum(1 for u in xici if u["id"].startswith("shang:"))
+    assert n_shang == 12, f"系辞上应十二章，实得 {n_shang}"
+    assert len(xici) - n_shang == 9, f"系辞下应九章，实得 {len(xici) - n_shang}"
+    stream = "".join(u["text"] for u in xici)
+    for phrase in ("大衍之数五十", "易有太极", "河出图，洛出书",
+                   "古者包牺氏之王天下也", "书不尽言，言不尽意"):
+        assert phrase in stream, f"系辞完整性校验未见: {phrase}"
+
+    oldid, text = fetch_page(XUGUA_PAGE, args.cache_dir)
+    pages_meta[XUGUA_PAGE] = oldid
+    xugua = parse_xugua(text)
+    assert xugua["shang"].startswith("有天地，然后万物生焉")
+    assert "故受之以未济" in xugua["xia"].replace("《", "").replace("》", "")
+    time.sleep(0.5)
+
+    oldid, text = fetch_page(ZAGUA_PAGE, args.cache_dir)
+    pages_meta[ZAGUA_PAGE] = oldid
+    zagua = parse_zagua(text, warnings)
+    assert zagua.startswith("乾刚坤柔") and "小人道" in zagua
+
     # 完整性：文言单元须挂真实经文；乾八单元、坤七单元
     for key in wenyan:
         hid, part = key.split(":", 1)
@@ -333,20 +440,30 @@ def main():
 
     out = {
         "meta": {
-            "work": "易传补编：《说卦传》＋乾坤《文言》",
-            "source": "维基文库《周易正義》说卦九之一至九之十一、乾坤两卦页面"
-                      "之传文部分（不含韩康伯注、孔颖达疏）",
-            "base_url": "https://zh.wikisource.org/wiki/周易正義",
+            "work": "易传补编：《说卦传》＋《系辞上下传》＋《序卦传》"
+                    "＋《杂卦传》＋乾坤《文言》",
+            "source": "说卦、文言取维基文库《周易正義》相应页面之传文部分"
+                      "（不含韩康伯注、孔颖达疏）；系辞上下、序卦、杂卦取"
+                      "白文《易傳》页面（正义卷七八十十一之韩注有与传文"
+                      "裸行混排者，机器无法可靠剥离，故不取）",
+            "base_url": "https://zh.wikisource.org/wiki/",
             "pages": pages_meta,
             "license": LICENSE,
             "license_url": LICENSE_URL,
             "conversion": "繁→简 OpenCC t2s",
             "chapters": "说卦章次依朱熹《周易本义》十一章之分；"
-                        "类象诸章（八、九、十、十一）按八卦再分",
+                        "类象诸章（八、九、十、十一）按八卦再分；"
+                        "系辞章次依《易傳》页面所分：上十二章（「天一地二」"
+                        "节居「大衍」前，同朱子《本义》改序后之次），"
+                        "下九章（与《本义》分下篇十二章不同）",
             "wenyan_anchors": "文言按所释经文单元锚定归段，锚点表手工整理"
                               "（见 tools/import_wikisource_yizhuan.py），"
                               "文本逐字出自页面",
-            "imported": "2026-08-24",
+            "variants": "杂卦页面另有「校詁版」一节不取；其与所取「一篇」"
+                        "之显异文：蒙杂而著/蒙稚而著、随无故也/随无事也、"
+                        "亲寡旅也/旅寡亲也、小人道消也/小人道忧也"
+                        "（通行注疏本作「小人道忧也」）",
+            "imported": "2026-08-25",
             "proofread": False,
             "warnings": warnings,
         },
@@ -354,10 +471,15 @@ def main():
                          **({"gua": gua} if gua else {}))
                     for uid, gua, txt in shuogua],
         "wenyan": wenyan,
+        "xici": xici,
+        "xugua": [{"id": "shang", "text": xugua["shang"]},
+                  {"id": "xia", "text": xugua["xia"]}],
+        "zagua": [{"id": "1", "text": zagua}],
     }
     Path(args.out).write_text(
         json.dumps(out, ensure_ascii=False, indent=1), "utf-8")
-    print(f"说卦 {len(shuogua)} 单元；文言 {len(wenyan)} 单元 → {args.out}")
+    print(f"说卦 {len(shuogua)} 单元；文言 {len(wenyan)} 单元；"
+          f"系辞 {len(xici)} 章；序卦 2 篇；杂卦 1 篇 → {args.out}")
     print(f"警告 {len(warnings)} 条")
     for w in warnings:
         print("  -", w)

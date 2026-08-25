@@ -26,6 +26,11 @@ def meta() -> dict:
     return _table()[0]
 
 
+def counts():
+    """全表笔画数组（0 为无数据；corpus 藏书目录统计用）。"""
+    return _table()[1]
+
+
 def total_strokes(ch):
     """单字总笔画数；不在表内（非汉字或罕见字）返回 None。"""
     m, counts = _table()

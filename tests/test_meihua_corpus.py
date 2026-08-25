@@ -13,12 +13,30 @@ def test_data_file_integrity():
     d = json.loads(Path(MEIHUA_PATH).read_text("utf-8"))
     assert d["meta"]["license"] == "CC BY-SA 4.0"
     assert d["meta"]["proofread"] is False
-    assert len(d["units"]) == 19            # 体用总诀 + 十八占
+    assert len(d["units"]) == 71            # 卷一 52 + 卷二（总诀 + 十八占）19
     ids = [u["id"] for u in d["units"]]
-    assert ids[0] == "2:tiyong"
+    assert "2:tiyong" in ids
     assert len([i for i in ids if i.startswith("2:zhan:")]) == 18
+    assert len([i for i in ids if i.startswith("1:")]) == 52
+    assert len([i for i in ids if i.startswith("1:xiang:wanwu:")]) == 8
     for u in d["units"]:
         assert u["text"].strip() and u["title"], u["id"]
+
+
+def test_juan1_casting_sources_present():
+    # 起卦引擎（casting.py）所引起卦法原文，逐条在库、可引用
+    c = kb.citation("meihua:1:qi:shijian")
+    assert c["source"] == "《梅花易数》·卷一·年月日时起例"
+    assert "年月日为上卦" in c["text"]
+    assert "平分" in kb.citation("meihua:1:qi:zi")["text"]
+    assert "三才" in kb.citation("meihua:1:qi:zishu")["text"]
+    # 西林寺牌额占：字占之占例（李明 → 山地剥 与之同构）
+    xilinsi = kb.citation("meihua:1:li:xilinsi")["text"]
+    assert "以西字七画为艮" in xilinsi and "山地剥" in xilinsi
+    # 万物属类逐卦一单元，供体用取象
+    qian = kb.citation("meihua:1:xiang:wanwu:qian")
+    assert qian["source"] == "《梅花易数》·卷一·八卦万物属类·乾"
+    assert "天时：" in qian["text"]
 
 
 def test_mount_labels():

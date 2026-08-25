@@ -116,3 +116,26 @@ def test_real_mount_and_selection():
     ids = [r.cite_id for r in sel.readings]
     assert "shuogua:11:li" in ids and "shuogua:11:dui" in ids
     assert "泽" in kb.citation("shuogua:11:dui")["text"]  # 兑为泽
+
+
+def test_xici_xugua_zagua_integrity():
+    # 系辞上十二章下九章；大衍筮法在上九，太极两仪在上十一
+    d = json.loads(Path(YIZHUAN_PATH).read_text("utf-8"))
+    ids = [u["id"] for u in d["xici"]]
+    assert ids == [f"shang:{n}" for n in range(1, 13)] + \
+        [f"xia:{n}" for n in range(1, 10)]
+    assert kb.citation("xici:shang:9")["source"] == "《系辞上传》第九章"
+    assert "大衍之数五十" in kb.citation("xici:shang:9")["text"]
+    assert "易有太极，是生两仪" in kb.citation("xici:shang:11")["text"]
+    assert "古者包牺氏之王天下也" in kb.citation("xici:xia:2")["text"]
+    # 序卦上下篇、杂卦
+    assert kb.citation("xugua:shang")["text"].startswith("有天地，然后万物生焉")
+    assert "既济" in kb.citation("xugua:xia")["text"]
+    assert kb.citation("zagua:1")["text"].startswith("乾刚坤柔")
+
+
+def test_xici_quotes_scripture_verbatim():
+    # 库内互证：系辞上八章引爻辞，与 hexagrams.json 经文逐字相合
+    x8 = kb.citation("xici:shang:8")["text"]
+    assert kb.citation("zhouyi:1:yao:6")["text"][:4] in x8      # 亢龙有悔
+    assert kb.citation("zhouyi:61:yao:2")["text"][:4] in x8     # 鸣鹤在阴

@@ -55,6 +55,10 @@ class ZiweiKB:
     def citation(self, cite_id):
         return self._citations[cite_id]
 
+    def citations(self):
+        """全部引文单元（corpus 检索层遍历用）。"""
+        return self._citations.values()
+
     def has(self, cite_id):
         return cite_id in self._citations
 

@@ -118,6 +118,11 @@ py -m yijing_agent -q "近期换一份工作是否合适" --birth 2000-09-14 --b
 
 # 卦盘并占（命理之问＋生辰时）：盘断其势、卦断其事，两断并陈、互不合断
 py -m yijing_agent -q "我今年财运如何" --birth 2000-09-14 --birth-time 午 --gender 男 --both
+
+# 翻书：跨全部典籍关键词检索 / 按引文编号取全文 / 藏书目录
+py -m yijing_agent.corpus 大衍之数
+py -m yijing_agent.corpus --cite meihua:1:li:xilinsi
+py -m yijing_agent.corpus --catalog
 ```
 
 **时区约定**：程序内所有时刻一律按**北京时间（东八区）**——农历即依
@@ -187,8 +192,10 @@ yijing_agent/
   verdict.py     断辞 → 定例结论映射（确定性对照基准；人工审定走
                  data/verdict_overrides.json）
   topic.py       问事分类（分类断法）：判类三级之规则层与类别表
-  knowledge.py   典籍知识库：结构化查表（64卦 + 彖象传 + 说卦文言 +
-                 梅花占诀，非向量检索）
+  knowledge.py   典籍知识库：结构化查表（64卦 + 彖象传 + 十翼补编 +
+                 梅花语料，非向量检索）
+  corpus.py      藏书检索层：catalog 目录 / get 取文 / search 关键词
+                 检索（跨易类与紫微两库；py -m yijing_agent.corpus）
   llm.py         占断与讲释（OpenRouter；占者之断，无据不断，异于定例须明据）
   validator.py   引文校验器：逐字比对＋占断必须标据，防幻觉闸门
   redline.py     红线拦截：医疗/投资/法律/寿夭类问题拒答
@@ -205,20 +212,23 @@ yijing_agent/
     report.py      终端十二宫命盘图与排盘凭证
   data/          知识库数据与校对说明（见 data/PROOFREADING.md）
                  hexagrams.json 经传原文；wangbi.json 王弼《周易注》；
-                 yizhuan.json 说卦传＋乾坤文言；meihua.json 《梅花易数》
-                 体用总诀与十八占；ziwei.json 《紫微斗数全书》断语库（429 条）；
-                 strokes.json 汉字笔画表（Unicode Unihan kTotalStrokes）
+                 yizhuan.json 十翼补编（说卦、系辞上下、序卦、杂卦、
+                 乾坤文言）；meihua.json 《梅花易数》卷一（起卦诸法、
+                 占例、类象）与卷二（体用总诀＋十八占）；ziwei.json
+                 《紫微斗数全书》断语库（429 条）；strokes.json 汉字
+                 笔画表（Unicode Unihan kTotalStrokes）
 tools/
   import_openiching.py        从 open-iching 仓库导入并校验典籍数据
   import_wikisource_wangbi.py 从维基文库《周易正義》导入王弼注（经文锚定对齐）
-  import_wikisource_yizhuan.py 从维基文库《周易正義》导入说卦传与乾坤文言
-  import_wikisource_meihua.py 从维基文库《梅花易數》卷二导入体用总诀与十八占
+  import_wikisource_yizhuan.py 从维基文库导入十翼补编（说卦文言取《周易正義》，
+                              系辞序卦杂卦取白文《易傳》页面）
+  import_wikisource_meihua.py 从维基文库《梅花易數》导入卷一、卷二全部章节
   import_wikisource_ziwei.py  从维基文库《紫微斗數全書》导入紫微库
   import_unihan_strokes.py    从 Unicode 官方 Unihan 导入汉字笔画表（字占用）
   gen_ziwei_fixtures.py       以 py-iztro 生成排盘命例回归集（开发机用）
-tests/           199 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
-                 注疏与文言挂载、说卦体用取象、占章按类附取、引文校验、
-                 LLM 重试与追问；紫微排盘 21 命例
+tests/           208 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
+                 注疏与文言挂载、说卦体用取象、占章按类附取、藏书检索、
+                 引文校验、LLM 重试与追问；紫微排盘 21 命例
                  回归（对照 iztro）、安星诀明文例、紫微库完整性、选文与
                  结论、问事分宫与合参
 ```
