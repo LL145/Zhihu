@@ -46,6 +46,10 @@ Key（默认模型 `z-ai/glm-5.3`）——Key 只保存在本机浏览器
 第三方服务器。首次打开需加载十余 MB 的 Python 运行时（来自
 cdn.jsdelivr.net），之后有缓存。
 
+> 一次性设置：仓库 **Settings → Pages → Build and deployment →
+> Source** 选 "**GitHub Actions**"（Actions 令牌无权代建 Pages 站点，
+> 须仓库主人点一次），之后每次推 main 自动部署。
+
 ### 方式一：直接下载可执行文件（Windows，无需安装 Python）
 
 每次推送到 main 分支，GitHub Actions 会自动打包 Windows 单文件版：
