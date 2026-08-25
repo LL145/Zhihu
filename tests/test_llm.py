@@ -117,6 +117,16 @@ def test_topic_note_in_payload_and_marked_non_scripture(monkeypatch):
     assert "非典籍原文" in seen["payload"]
 
 
+def test_system_prompt_style_rules():
+    # 风格约定（ALGORITHM.md 六）：说人话、档次须有着落、不许诺数额必然
+    assert "说人话" in llm._SYSTEM
+    assert "不得自造原文没有的档次" in llm._SYSTEM
+    assert "不得许诺具体数额、时限或必然结果" in llm._SYSTEM
+    from tianwen.ziwei import llm as zllm
+    assert "说人话" in zllm._SYSTEM
+    assert "不得许诺具体数额、时限或必然结果" in zllm._SYSTEM
+
+
 def test_classify_topic(monkeypatch):
     # 占者判类：温度 0、键须在类别表内、任何异常回落 None
     seen = {}
