@@ -129,6 +129,7 @@ class Session:
                                                      aspect)
                 self.vd = zselection.decide_destiny(self.chart)
 
+        self.desk = ()   # 书桌召回结果（仅盘为主断时非空；凭证用）
         self.contexts = self._build_contexts()
 
     # ── 语境块（可引不可断，ALGORITHM.md 五） ────────────────────────
@@ -190,7 +191,36 @@ class Session:
                     title="紫微盘（论秉性禀赋）",
                     notes=list(csel.notes) + [r.role for r in csel.readings],
                     items=items))
+        if self.primary == "chart":
+            desk = self._desk_block()
+            if desk is not None:
+                blocks.append(desk)
         return blocks
+
+    _DESK_CAP = 8   # 书桌每星至多召回行数（凭证如实标注）
+
+    def _desk_block(self):
+        """书桌（确定性召回层）：按主断宫主星自赋文格诀池机械召回
+        候选断语行入语境（可引不可断，模型池内择引）；召回规则与
+        命中数进凭证（repro_text）。"""
+        self.desk = self.zkb.desk(self.sel.desk_stars, cap=self._DESK_CAP)
+        if not self.desk:
+            return None
+        notes = ["候选断语按星名字样自《全书·卷一》赋文诸论、十等论、"
+                 "定诸局机械召回，未必尽合此盘：引用前须对照盘面星曜"
+                 "庙陷宫支，不合者勿引，不得据以立断"]
+        by_cid = {}
+        for star, hits, total in self.desk:
+            notes.append(f"{star}：命中 {total} 行"
+                         + (f"，列前 {len(hits)}" if total > len(hits) else ""))
+            for cid, ln in hits:
+                lines = by_cid.setdefault(cid, [])
+                if ln not in lines:
+                    lines.append(ln)
+        items = [(cid, self.zkb.citation(cid)["source"], "\n".join(lns))
+                 for cid, lns in by_cid.items()]
+        return ContextBlock(title="书桌（候选断语，机械召回）",
+                            notes=notes, items=items)
 
     # ── 呈现（结论先行，ALGORITHM.md 六） ────────────────────────────
 
@@ -256,6 +286,16 @@ class Session:
             parts.append(report.render_repro(self.name_cast))
         if self.chart is not None:
             parts.append(zreport.render_repro(self.chart))
+        if self.desk:
+            out = ["── 书桌召回（确定性） " + "─" * 18]
+            out.append("  池：《紫微斗数全书·卷一》赋文诸论、十等论、"
+                       "定富贵贫贱杂诸局，逐行")
+            out.append(f"  规则：主断宫主星星名字样命中即收，依库序，"
+                       f"每星至多 {self._DESK_CAP} 行（超额如实标注）；"
+                       "只入解读语境，可引不可断")
+            for star, hits, total in self.desk:
+                out.append(f"  {star}：命中 {total} 行，入语境 {len(hits)} 行")
+            parts.append("\n".join(out))
         return "\n\n".join(parts)
 
     def degraded_conclusion_text(self):

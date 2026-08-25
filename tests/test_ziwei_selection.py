@@ -23,7 +23,7 @@ def test_destiny_selection(zkb, c2000):
     sel = selection.select_destiny(zkb, c2000)
     assert sel.palace_name == "命宫" and sel.branch == "卯"
     assert "命身同宫" in sel.notes
-    [r] = sel.readings
+    [r] = [r for r in sel.readings if r.primary]
     assert r.primary and r.cite_id == "ziwei:2:ming:taiyin"
     assert "太阴" in r.role and "落陷" in r.role and "化科" in r.role
     ctx = list(r.context_ids)
@@ -56,12 +56,14 @@ def test_destiny_borrow_opposite(zkb):
     assert not c.palaces[0].major()
     sel = selection.select_destiny(zkb, c)
     assert any("借对宫" in n for n in sel.notes)
-    names = {r.role for r in sel.readings}
+    primaries = [r for r in sel.readings if r.primary]
+    names = {r.role for r in primaries}
     assert any("太阳" in n for n in names) and any("太阴" in n for n in names)
-    assert all("借自迁移宫" in r.role for r in sel.readings)
-    # 借宫不取分宫格
+    assert all("借自迁移宫" in r.role for r in primaries)
+    # 借宫不取分宫格；格诀仍按安命宫支取（诀本按宫支立文，与借宫无涉）
     assert all(":ge:" not in cid
                for r in sel.readings for cid in r.context_ids)
+    assert any(r.cite_id.startswith("ziwei:1:hege:") for r in sel.readings)
     vd = selection.decide_destiny(c)
     assert "无正曜" in vd["basis"] and "借对宫" in vd["basis"]
     assert vd["verdict"] == "强弱互见"     # 丑宫太阴庙、太阳不得地
@@ -110,7 +112,8 @@ def test_fortune_with_aspect(zkb, c2000):
                           for r in aspect)
     assert any("财帛宫" in r.role for r in aspect)
     assert any("题材宫只入解读，不另出结论" in n for n in sel.notes)
-    assert sel.readings[-1].role == "限势总论"
+    assert any(r.role == "限势总论" for r in sel.readings)
+    assert sel.readings[-1].role == "二限太岁总说"   # 流年块垫底
     # 大限主断仍居首
     assert sel.readings[0].cite_id == "ziwei:2:ming:jumen:xian"
 
@@ -151,3 +154,44 @@ def test_fortune_before_qixian(zkb):
     sel = selection.select_fortune(zkb, c, datetime(2001, 6, 1))
     assert any("未及起限" in n for n in sel.notes)
     assert sel.palace_name == "命宫"
+
+
+# ── v2.5 接线：格诀查表、流年二限、书桌 ─────────────────────────────
+
+
+def test_destiny_gejue_by_branch(zkb, c2000):
+    # 命宫卯：合格诀取卯安命一条、破格诀取涉卯之行，均只作语境参照
+    sel = selection.select_destiny(zkb, c2000)
+    [h] = [r for r in sel.readings if r.cite_id.startswith("ziwei:1:hege:")]
+    assert h.cite_id == "ziwei:1:hege:mao" and not h.primary
+    assert "卯安命" in zkb.citation(h.cite_id)["text"]
+    poge = [r for r in sel.readings if r.cite_id.startswith("ziwei:1:poge:")]
+    assert poge and all(not r.primary for r in poge)
+    assert all("卯" in zkb.record(r.cite_id)["branches"] for r in poge)
+    assert any("格诀按安命宫支" in n for n in sel.notes)
+    # 时运问不取格诀（格诀论安命，非论限）
+    fsel = selection.select_fortune(zkb, c2000, datetime(2026, 8, 24))
+    assert not any(r.cite_id.startswith("ziwei:1:hege:")
+                   for r in fsel.readings)
+
+
+def test_fortune_liunian(zkb, c2000):
+    # 2026 丙午年：太岁午在田宅；庚辰男 27 虚岁小限在子（申子辰起戌顺行）
+    sel = selection.select_fortune(zkb, c2000, datetime(2026, 8, 24))
+    assert any("太岁在午（田宅宫）" in n and "小限在子" in n
+               for n in sel.notes)
+    assert any("太岁冲小限（子）" in n for n in sel.notes)
+    # 小限宫（子女，破军庙）主星附入限诀为参；二限太岁总说垫底
+    xiao = [r for r in sel.readings if r.role.startswith("小限")]
+    assert xiao and xiao[0].cite_id == "ziwei:2:ming:pojun:xian"
+    assert all(not r.primary for r in xiao)
+    assert sel.readings[-1].cite_id == "ziwei:3:erxian"
+    # 结论仍单源：定例仍依《论大限》三例
+    vd = selection.decide_fortune(c2000, datetime(2026, 8, 24))
+    assert vd["cite_id"] == "ziwei:3:daxian"
+
+
+def test_desk_stars_recorded(zkb, c2000):
+    assert selection.select_destiny(zkb, c2000).desk_stars == ("太阴",)
+    sel = selection.select_fortune(zkb, c2000, datetime(2026, 8, 24))
+    assert sel.desk_stars == ("巨门",)

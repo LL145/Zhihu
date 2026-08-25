@@ -123,3 +123,29 @@ def test_fu_sections(raw, zkb):
            if cid.startswith("ziwei:1:ju:gui:")]
     assert len(gui) >= 20
     assert any(r["source"].endswith("君臣庆会") for r in gui)
+
+
+def test_gejue_lookups(zkb):
+    """格诀查表（v2.5 之查表半）：按安命宫支取合格诀／破格诀。"""
+    for b in "子丑寅卯辰巳午未申酉戌亥":
+        assert zkb.hege(b) is not None, b
+    assert zkb.hege("卯") == "ziwei:1:hege:mao"
+    lines = zkb.poge_lines("卯")
+    assert lines
+    for cid in lines:
+        assert "卯" in zkb.record(cid)["branches"]
+    assert zkb.hege("戍") is None      # 宫支已归一，异体不再入口
+
+
+def test_desk_recall(zkb):
+    """书桌：按星名自赋文格诀池机械召回，确定性、可截取、如实报数。"""
+    [(star, hits, total)] = zkb.desk(["巨门"])
+    assert star == "巨门" and len(hits) <= 8 <= total
+    for cid, line in hits:
+        assert "巨门" in line
+        assert cid.split(":")[2] in ("fu", "shideng", "ju")
+        # 行文逐字出自该单元原文（引文校验之前提）
+        assert line in zkb.citation(cid)["text"]
+    assert zkb.desk(["巨门"]) == zkb.desk(["巨门"])    # 确定性
+    assert zkb.desk(["巨门"], cap=2)[0][1] == hits[:2]  # 截取取前
+    assert zkb.desk(["不存在之星"]) == []

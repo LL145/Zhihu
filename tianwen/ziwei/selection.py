@@ -2,14 +2,18 @@
 
 规则选文，杜绝挑拣（DESIGN §5.4、§6.1 「卦断事，盘论人」）：
 - 问命格 → 命宫主星：命宫论断文为主断，分宫格（按命宫支取行）、
-  入男/女命吉凶诀（按性别取）、诸星问答为语境；
+  入男/女命吉凶诀（按性别取）、诸星问答为语境；另按安命宫支机取
+  《卷一》得地合格诀／失陷破格诀（格诀查表，v2.5，只作语境参照）；
 - 问时运 → 现行大限宫主星：入限吉凶诀为主断，《论大限十年祸福何如》
-  为语境；
+  为语境；流年二限（v2.5）：太岁与小限（《安小限诀》）所在之宫如实
+  列出、相冲诸项依《论二限太岁吉凶》逐项查验，小限宫主星附入限诀为参；
 - 问事分宫：问题落在具体题材（财、婚、业……）时，依关键词规则加取
   所涉之宫诸星断语（《全书·卷二》十二宫），题材宫不另出结论；
 - 合参（DESIGN §6.2）：问具体事走事引擎时，命盘只以所涉之宫断语作
   「人的语境」进入解读层，不产生第二个吉凶；
-- 宫无正曜依通行借对宫论（如实标注）。
+- 宫无正曜依通行借对宫论（如实标注）；
+- 书桌（v3 后续之召回层）：主断宫主星名记于 desk_stars，service 层
+  据此自赋文格诀池机械召回候选断语入语境（可引不可断，规则进凭证）。
 
 结论不由 LLM 发挥：
 - 命格强弱由庙陷表定（庙/旺/得地为得力，利益/平和为平，不得地/落陷
@@ -73,6 +77,7 @@ class ChartSelection:
     branch: str
     readings: list = field(default_factory=list)
     notes: list = field(default_factory=list)   # 借对宫等如实标注
+    desk_stars: tuple = ()  # 书桌召回所依主断宫主星（ZiweiKB.desk 用）
 
     @property
     def primary(self):
@@ -161,8 +166,28 @@ def select_destiny(zkb, chart, aspect=None):
                  + (f"，化{s.sihua}" if s.sihua else "") + "）"
                  + ("〔借自迁移宫〕" if borrowed else ""),
             cite_id=zkb.ming(s.name), context_ids=tuple(ctx), primary=True))
+    sel.desk_stars = tuple(s.name for s in src.major())
+    _add_gejue(zkb, sel, ming.branch)
     _add_aspect(zkb, chart, sel, aspect)
     return sel
+
+
+def _add_gejue(zkb, sel, branch):
+    """格诀查表（v2.5 格局识别之查表半）：按安命宫支机取《卷一》
+    得地合格诀与失陷破格诀。诀文所言星曜须与盘面对照，故只作语境
+    参照（primary=False），不改结论单源。"""
+    hege = zkb.hege(branch)
+    poge = zkb.poge_lines(branch)
+    if not hege and not poge:
+        return
+    sel.notes.append(f"格诀按安命宫支（{branch}）机取（《卷一》得地合格诀"
+                     "／失陷破格诀）：诀中所言星曜庙陷须与盘面对照，合者方论")
+    if hege:
+        sel.readings.append(Reading(
+            role=f"安命（{branch}）得地合格诀", cite_id=hege, primary=False))
+    for cid in poge:
+        sel.readings.append(Reading(
+            role=f"安命（{branch}）失陷破格诀", cite_id=cid, primary=False))
 
 
 def _add_aspect(zkb, chart, sel, aspect):
@@ -210,11 +235,56 @@ def select_fortune(zkb, chart, at, aspect=None):
                  + ("〔借对宫〕" if borrowed else ""),
             cite_id=zkb.ming_jue(s.name, "xian"),
             context_ids=tuple(ctx), primary=True))
+    sel.desk_stars = tuple(s.name for s in src.major())
     _add_aspect(zkb, chart, sel, aspect)
     sel.readings.append(Reading(
         role="限势总论", cite_id=zkb.lun("daxian"),
         context_ids=(), primary=False))
+    _add_liunian(zkb, chart, sel, at, age)
     return sel
+
+
+def _chong(a, b):
+    """地支六冲（对宫相冲）。"""
+    return (ZHI.index(a) - ZHI.index(b)) % 12 == 6
+
+
+def _add_liunian(zkb, chart, sel, at, age):
+    """流年二限（v2.5）：太岁（当年年支）与小限（《安小限诀》）所在之宫
+    如实列出，相冲诸项依《论二限太岁吉凶》明文逐项查验；小限宫主星附
+    入限诀为参。结论仍单源（依《论大限》三例），流年只入解读。"""
+    tai = chart.year_branch(at)
+    xiao = chart.xiaoxian_branch(age)
+    tp, xp = chart.palace_of_branch(tai), chart.palace_of_branch(xiao)
+    sel.notes.append(
+        f"流年：太岁在{tai}（{_pname(tp)}），小限在{xiao}（{_pname(xp)}）"
+        f"——小限依《安小限诀》本生年{chart.lunar.year_zhi}支起宫、"
+        f"男顺女逆逐年一宫，太岁即当年年支；虚岁 {age}")
+    # 《论二限太岁吉凶》「又看太岁冲大限小限，太岁冲羊陀七杀」——逐项查验
+    chongs = []
+    if _chong(tai, sel.branch):
+        chongs.append(f"太岁冲大限（{sel.branch}）")
+    if _chong(tai, xiao):
+        chongs.append(f"太岁冲小限（{xiao}）")
+    for name in ("擎羊", "陀罗", "七杀"):
+        p = chart.star_palace(name)
+        if p is not None and _chong(tai, p.branch):
+            chongs.append(f"太岁冲{name}（{p.branch}）")
+    sel.notes.append("太岁相冲查验（《论二限太岁吉凶》明文诸项）："
+                     + ("、".join(chongs) if chongs else "俱无冲"))
+    have = {r.cite_id for r in sel.readings}
+    for s in xp.major():
+        cid = zkb.ming_jue(s.name, "xian")
+        if cid is None or cid in have:
+            continue
+        b = s.brightness or "—"
+        sel.readings.append(Reading(
+            role=f"小限{_pname(xp)} {s.name}（{b}"
+                 + (f"，化{s.sihua}" if s.sihua else "") + "）入限（流年之参）",
+            cite_id=cid, context_ids=(), primary=False))
+    sel.readings.append(Reading(
+        role="二限太岁总说", cite_id=zkb.lun("erxian"),
+        context_ids=(), primary=False))
 
 
 def select_context(zkb, chart, tp, question):

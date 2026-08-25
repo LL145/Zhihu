@@ -140,6 +140,31 @@ def test_chart_fortune_aspect_palace():
     assert "所问之宫：财帛宫" in s.evidence_text()
 
 
+def test_chart_desk_context_and_repro():
+    # 书桌（确定性召回层）：盘为主断时按主断宫主星召回候选断语入语境，
+    # 召回规则与命中数进凭证；事为主断时无书桌
+    s = _full(question="我今年运势如何")
+    [desk] = [b for b in s.contexts if "书桌" in b.title]
+    assert desk.items and any("机械召回" in n for n in desk.notes)
+    assert {star for star, _h, _t in s.desk} == {"巨门"}   # 大限福德宫主星
+    for cid, _src, text in desk.items:
+        assert cid.split(":")[2] in ("fu", "shideng", "ju")
+        assert "巨门" in text
+    repro = s.repro_text()
+    assert "书桌召回" in repro and "命中" in repro and "可引不可断" in repro
+    s2 = _full()
+    assert s2.primary == "event"
+    assert not s2.desk and not [b for b in s2.contexts if "书桌" in b.title]
+
+
+def test_chart_fortune_liunian_in_evidence():
+    # 流年二限（太岁＋小限）如实入所据断语区
+    s = _full(question="我今年运势如何")
+    ev = s.evidence_text()
+    assert "太岁在" in ev and "小限在" in ev
+    assert "二限太岁总说" in ev
+
+
 # ── 红线、判类与追问 ──────────────────────
 
 

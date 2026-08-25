@@ -189,3 +189,27 @@ def test_gender_affects_daxian_direction_only():
 def test_invalid_gender():
     with pytest.raises(ValueError):
         chart.cast(datetime(2000, 9, 14, 12, 0), "?")
+
+
+def test_xiaoxian_per_jue():
+    # 《安小限诀》：起宫按本生年支三合，当一岁；男顺女逆，逐年一宫。
+    m = chart.cast(datetime(2000, 9, 14, 12, 0), "男")   # 庚辰年：申子辰起戌
+    f = chart.cast(datetime(2000, 9, 14, 12, 0), "女")
+    assert m.xiaoxian_branch(1) == f.xiaoxian_branch(1) == "戌"
+    assert m.xiaoxian_branch(2) == "亥" and f.xiaoxian_branch(2) == "酉"
+    assert m.xiaoxian_branch(13) == "戌"                 # 十二年一周
+    assert m.xiaoxian_branch(27) == "子"
+    # 其余三合各起其宫：寅午戌起辰、巳酉丑起未、亥卯未起丑
+    for birth, start in ((datetime(1998, 6, 1, 12), "辰"),    # 戊寅年
+                         (datetime(2001, 6, 1, 12), "未"),    # 辛巳年
+                         (datetime(1999, 6, 1, 12), "丑")):   # 己卯年
+        assert chart.cast(birth, "男").xiaoxian_branch(1) == start
+
+
+def test_year_branch_and_xu_age():
+    c = chart.cast(datetime(2000, 9, 14, 12, 0), "男")   # 庚辰年生
+    assert c.year_branch(datetime(2026, 8, 24)) == "午"  # 2026 丙午
+    assert c.xu_age(datetime(2026, 8, 24)) == 27
+    # 年界依正月初一：2026 年 2 月初（未过丙午年初一）仍属乙巳
+    assert c.year_branch(datetime(2026, 2, 1)) == "巳"
+    assert c.xu_age(datetime(2026, 2, 1)) == 26

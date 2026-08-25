@@ -124,15 +124,31 @@ class Chart:
                     return p
         return None
 
-    def current_daxian(self, at: datetime):
-        """按虚岁定当前大限（虚岁 = 农历年份差 + 1）。"""
-        age = cnlunar.Lunar(at, godType="8char").lunarYear \
+    def xu_age(self, at: datetime) -> int:
+        """at 时之虚岁（农历年份差 + 1；年界依正月初一约定）。"""
+        return cnlunar.Lunar(at, godType="8char").lunarYear \
             - self.lunar.lunar_year + 1
+
+    def current_daxian(self, at: datetime):
+        """按虚岁定当前大限。"""
+        age = self.xu_age(at)
         for p in self.palaces:
             lo, hi = p.daxian
             if lo <= age <= hi:
                 return p, age
         return None, age
+
+    def year_branch(self, at: datetime) -> str:
+        """at 所在农历年之年支（太岁；年界依正月初一约定）。"""
+        return ZHI[(cnlunar.Lunar(at, godType="8char").lunarYear - 4) % 12]
+
+    def xiaoxian_branch(self, age: int) -> str:
+        """小限所在宫支。《安小限诀》：不论阴阳男俱顺数、不论阴阳女俱
+        逆数；寅午戌人起辰宫，申子辰人自戌宫，巳酉丑人起未宫，亥卯未人
+        起丑宫——起宫当一岁，逐年一宫。"""
+        start = _XIAOXIAN_START[self.lunar.year_zhi]
+        step = age - 1 if self.gender == "男" else 1 - age
+        return ZHI[(start + step) % 12]
 
 
 # ── 农历换算（生辰用） ──────────────────────────────────────────────────
@@ -240,6 +256,11 @@ _KUIYUE = {"甲": (1, 7), "戊": (1, 7), "庚": (1, 7),
            "辛": (2, 6),
            "壬": (3, 5), "癸": (3, 5),
            "丙": (11, 9), "丁": (11, 9)}
+
+# 小限起宫（《安小限诀》论本生年支）：寅午戌人起辰宫，申子辰人自戌宫，
+# 巳酉丑人起未宫，亥卯未人起丑宫。
+_XIAOXIAN_START = {"寅": 4, "午": 4, "戌": 4, "申": 10, "子": 10, "辰": 10,
+                   "巳": 7, "酉": 7, "丑": 7, "亥": 1, "卯": 1, "未": 1}
 
 # 天马（《安天马星诀》论本生年支）：寅午戌人马居申，申子辰人马居寅，
 # 巳酉丑人马居亥，亥卯未人马居巳。

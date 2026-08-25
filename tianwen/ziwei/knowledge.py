@@ -26,6 +26,9 @@ tools/import_wikisource_ziwei.py）：
     ziwei:1:poge:{n}              十二宫诸星失陷破格诀，行可兼数宫支
     ziwei:1:ju:{cat}:{n}          定富局(fu)/定贵局(gui)/定贫贱局(pinjian)/
                                   定杂局(za)，逐行一局（局名在 source）
+
+查表接线（选文层取用）：hege/poge_lines 按安命宫支取格诀；desk 按星名
+自赋文格诀池机械召回候选断语行（书桌，只入语境、可引不可断）。
 """
 
 import json
@@ -56,6 +59,8 @@ class ZiweiKB:
         self._citations = {}
         self._by_gong = {}       # (宫名, 星名) → cite_id
         self._ge = {}            # 星名 → [(branches, cite_id)]
+        self._hege = {}          # 安命宫支 → cite_id（得地合格诀）
+        self._poge = []          # [(宫支列表, cite_id)]（失陷破格诀）
         for cid, r in self._records.items():
             label = "《紫微斗数全书》" + r["source"][len("紫微斗数全书"):]
             self._citations[cid] = {"cite_id": cid, "source": label,
@@ -66,6 +71,10 @@ class ZiweiKB:
             elif r["kind"] == "ge":
                 self._ge.setdefault(r["stars"][0], []).append(
                     (r.get("branches", []), cid))
+            elif r["kind"] == "hege":
+                self._hege[r["branches"][0]] = cid
+            elif r["kind"] == "poge":
+                self._poge.append((r["branches"], cid))
 
     def citation(self, cite_id):
         return self._citations[cite_id]
@@ -104,6 +113,14 @@ class ZiweiKB:
         cid = f"ziwei:2:gong:{PALACE_SEG[palace]}:zonglun"
         return cid if self.has(cid) else None
 
+    def hege(self, branch):
+        """安命某宫支之得地合格诀 cite_id（十二宫支俱全）。"""
+        return self._hege.get(branch)
+
+    def poge_lines(self, branch):
+        """失陷破格诀中涉及某安命宫支的行 cite_id 列表。"""
+        return [cid for brs, cid in self._poge if branch in brs]
+
     def wenda(self, star):
         cid = f"ziwei:1:wenda:{STAR_SEG[star]}"
         return cid if self.has(cid) else None
@@ -112,3 +129,27 @@ class ZiweiKB:
         """卷三论说：seg ∈ daxian / erxian。"""
         cid = f"ziwei:3:{seg}"
         return cid if self.has(cid) else None
+
+    # ── 书桌（确定性召回层，DESIGN §9 v3 后续） ───────────────────────
+
+    def desk(self, stars, cap=8):
+        """按星名自赋文格诀池机械召回候选断语行（倒排，确定性）。
+
+        池为卷一赋文诸论、十等论、定富贵贫贱杂诸局（kind ∈ fu/shideng/
+        ju），依库序逐行；星名字样命中即收，每星至多 cap 行、命中总数
+        如实返回（不足不补、超额截取须由调用方标注）。只入解读语境
+        （可引不可断），不参与断辞。返回
+        [(星名, [(cite_id, 行文), …], 命中总数), …]，无命中之星不列。
+        """
+        if not hasattr(self, "_desk_pool"):
+            self._desk_pool = [
+                (cid, line.strip())
+                for cid, r in self._records.items()
+                if r["kind"] in ("fu", "shideng", "ju")
+                for line in r["text"].split("\n") if line.strip()]
+        out = []
+        for star in stars:
+            hits = [(cid, ln) for cid, ln in self._desk_pool if star in ln]
+            if hits:
+                out.append((star, hits[:cap], len(hits)))
+        return out
