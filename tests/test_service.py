@@ -96,6 +96,21 @@ def test_chart_contexts_include_time_and_name_casts():
     assert any("姓名卦" in t for t in titles)
 
 
+def test_cast_contexts_span_scripture_commentary_and_notes():
+    # 旁征博引之资：卦侧语境经（爻辞、卦辞）、传（小象、彖）、
+    # 注（动爻王弼注）各备一体（可引不可断）
+    for q in ("近期换工作是否合适", "我今年运势如何"):
+        s = _full(question=q)
+        for b in s.contexts:
+            if "卦" not in b.title:
+                continue    # 紫微语境块非卦侧
+            cids = [cid for cid, _src, _t in b.items]
+            assert any(c.startswith("zhouyi:") for c in cids), b.title
+            assert any(c.startswith("xiaoxiang:") for c in cids), b.title
+            assert any(c.startswith("tuan:") for c in cids), b.title
+            assert any(c.startswith("wangbi:") for c in cids), b.title
+
+
 def test_single_verdict_in_overview():
     # 吉凶只有一个出处：一览中「主断」标签唯一
     for q in ("近期换工作是否合适", "我今年运势如何"):

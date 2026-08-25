@@ -71,6 +71,29 @@ def test_quote_validation_rejects_fabrication(env):
     assert errs and "逐字照抄" in errs[0]
 
 
+def test_reasons_may_cite_context_texts(env):
+    # 旁征博引：理由与 quotes 可参引语境（时间卦等）之周易原文，
+    # 断语仍只落在《全书》主断侧（可引不可断）
+    from tianwen.knowledge import KnowledgeBase
+    zkb, c, sel, vd = env
+    kb = KnowledgeBase()
+    ctx_cid = "zhouyi:21:yao:4"
+    ctx_text = kb.citation(ctx_cid)["text"]
+    allowed = zllm._allowed_texts(zkb, sel)
+    primary = frozenset(allowed)
+    allowed = {**allowed, ctx_cid: ctx_text}
+    result = {
+        "conclusion": "大势可为，稳中求进。",
+        "judgment": "此限成败不一，宜谨。[ziwei:3:daxian]",
+        "reasons": f"盘断为主 [ziwei:3:daxian]，时间卦亦见此势 [{ctx_cid}]",
+        "advice": ["建议"],
+        "quotes": [{"text": ctx_text[:6], "cite_id": ctx_cid}],
+    }
+    assert validate(result, allowed, primary) == []
+    bad = dict(result, judgment=f"宜进取。[{ctx_cid}]")
+    assert validate(bad, allowed, primary)
+
+
 def test_followup_messages(env, monkeypatch):
     zkb, c, sel, vd = env
     captured = {}

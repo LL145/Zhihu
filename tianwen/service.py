@@ -134,14 +134,20 @@ class Session:
     # ── 语境块（可引不可断，ALGORITHM.md 五） ────────────────────────
 
     def _cast_items(self, cast):
-        """卦的语境文本：动爻爻辞＋小象＋本卦卦辞（紧凑，不铺陈）。"""
+        """卦的语境文本：动爻爻辞＋小象＋本卦卦辞＋彖传，附动爻王弼注。
+
+        经、传、注各备一体，供解读旁征博引（可引不可断）；仍取紧凑，
+        不铺陈全卦。"""
         ben = self.kb.id_of(cast.ben_binary)
         pos = cast.moving[0]
         items = []
         for cid in (f"zhouyi:{ben}:yao:{pos}", f"xiaoxiang:{ben}:{pos}",
-                    f"zhouyi:{ben}:guaci"):
+                    f"zhouyi:{ben}:guaci", f"tuan:{ben}"):
             c = self.kb.citation(cid)
             items.append((cid, c["source"], c["text"]))
+        note = self.kb.commentary(f"zhouyi:{ben}:yao:{pos}")
+        if note:   # 王弼注偶有缺文（如乾上九），缺则不附
+            items.append((note["cite_id"], note["source"], note["text"]))
         return items
 
     def _cast_desc(self, cast):
