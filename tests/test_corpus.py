@@ -2,7 +2,7 @@
 
 import pytest
 
-from yijing_agent import corpus
+from tianwen import corpus
 
 
 def test_catalog_lists_all_books():

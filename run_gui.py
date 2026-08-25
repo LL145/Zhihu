@@ -1,8 +1,8 @@
-"""PyInstaller 图形界面打包入口（等价于 python -m yijing_agent.gui）。"""
+"""PyInstaller 图形界面打包入口（等价于 python -m tianwen.gui）。"""
 
 import sys
 
-from yijing_agent.gui import main
+from tianwen.gui import main
 
 if __name__ == "__main__":
     sys.exit(main())

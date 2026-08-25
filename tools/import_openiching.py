@@ -39,7 +39,7 @@ def main() -> None:
         sys.exit(__doc__)
     src = Path(sys.argv[1])
     out = Path(sys.argv[2]) if len(sys.argv) > 2 else (
-        Path(__file__).resolve().parent.parent / "yijing_agent" / "data" / "hexagrams.json"
+        Path(__file__).resolve().parent.parent / "tianwen" / "data" / "hexagrams.json"
     )
 
     iching = json.loads((src / "iching" / "iching.json").read_text("utf-8"))

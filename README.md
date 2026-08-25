@@ -1,4 +1,6 @@
-# 知乎 · 算命 Agent
+# 天问
+
+> 名出屈原《天问》——遂古之初，谁传道之？问天之辞，以典为答。
 
 **尽量还原传统占法的本来流程，以大模型代人任占者之判**：**卦断事，盘论人**。
 设计文档见 [DESIGN.md](DESIGN.md)；算法流程图与每一步的典籍依据见
@@ -37,19 +39,19 @@
 
 每次推送到 main 分支，GitHub Actions 会自动打包 Windows 单文件版：
 仓库 **Actions** 页 → 最新一次 `build` 运行 → Artifacts → 下载
-`yijing-agent-windows`，解压得到两个文件：
+`tianwen-windows`，解压得到两个文件：
 
-- **`yijing-agent-gui.exe`（推荐）**：图形界面版。双击打开窗口，输入
+- **`tianwen-gui.exe`（推荐）**：图形界面版。双击打开窗口，输入
   所问之事点「起卦 / 排盘」；命理类问题（命格/时运）用下拉框选好生辰
   （公历年月日、时辰、性别，全为下拉不必手填）即出紫微命盘；点右上
   「设置」填入 OpenRouter API Key 即可启用大模型解读与追问（保存在
   exe 旁的 config.json）。
-- `yijing-agent.exe`：命令行版，用法见下文。
+- `tianwen.exe`：命令行版，用法见下文。
 
 打了 `v*` 标签（如 `v0.1.0`）则会自动发布到 **Releases** 页，从那里下载更方便。
 
 ```powershell
-.\yijing-agent.exe -q "近期换一份工作是否合适"
+.\tianwen.exe -q "近期换一份工作是否合适"
 ```
 
 要启用大模型解读，把 `config.json`（见下文）放在 exe 同一目录即可
@@ -65,10 +67,10 @@ py -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 
-py -m yijing_agent -q "近期换一份工作是否合适"
+py -m tianwen -q "近期换一份工作是否合适"
 
 # 图形界面版
-py -m yijing_agent.gui
+py -m tianwen.gui
 ```
 
 若终端中文显示异常，先执行 `chcp 65001` 切换到 UTF-8。
@@ -99,25 +101,25 @@ py -m yijing_agent.gui
 
 ```powershell
 # 单一模式（全五项输入）：时间卦＋姓名卦＋紫微盘三占同起，主断唯一
-py -m yijing_agent -q "近期换一份工作是否合适" --name 李明 --birth 2000-09-14 --birth-time 午 --gender 男
+py -m tianwen -q "近期换一份工作是否合适" --name 李明 --birth 2000-09-14 --birth-time 午 --gender 男
 
 # 输入不全只减少参照（不起姓名卦/无盘，缘由如实展示），不碍起卦
-py -m yijing_agent -q "所问之事"
+py -m tianwen -q "所问之事"
 
 # 交互模式：直接运行，逐项询问（回车跳过）
-py -m yijing_agent
+py -m tianwen
 
 # 指定起卦时刻（北京时间；复现旧卦 / 测试用）
-py -m yijing_agent -q "所问之事" --when "2026-08-24 15:30"
+py -m tianwen -q "所问之事" --when "2026-08-24 15:30"
 
 # 不调用大模型（结论直取定例断辞）；--full 附卦画与十二宫盘面
-py -m yijing_agent -q "所问之事" --no-llm --full
+py -m tianwen -q "所问之事" --no-llm --full
 
 # 翻书：跨全部典籍关键词检索 / 按书名或编号取全文 / 藏书目录
-py -m yijing_agent.corpus 大衍之数
-py -m yijing_agent.corpus --cite 西林寺牌额占
-py -m yijing_agent.corpus --cite xici:shang:9
-py -m yijing_agent.corpus --catalog
+py -m tianwen.corpus 大衍之数
+py -m tianwen.corpus --cite 西林寺牌额占
+py -m tianwen.corpus --cite xici:shang:9
+py -m tianwen.corpus --catalog
 ```
 
 **时区约定**：程序内所有时刻一律按**北京时间（东八区）**——农历即依
@@ -172,7 +174,7 @@ py -m yijing_agent.corpus --catalog
 ## 项目结构
 
 ```
-yijing_agent/
+tianwen/
   casting.py     起卦引擎（无随机数）：梅花易数时间起卦 / 姓名字占（笔画，
                  依卷一字画占例）；铜钱法留存待真实掷象输入
                  （ALGORITHM.md 七）
@@ -184,14 +186,14 @@ yijing_agent/
   knowledge.py   典籍知识库：结构化查表（64卦 + 彖象传 + 十翼补编 +
                  梅花语料，非向量检索）
   corpus.py      藏书检索层：catalog 目录 / get 取文 / search 关键词
-                 检索（跨易类与紫微两库；py -m yijing_agent.corpus）
+                 检索（跨易类与紫微两库；py -m tianwen.corpus）
   llm.py         占断与讲释（OpenRouter；占者之断，无据不断，异于定例须明据）
   validator.py   引文校验器：逐字比对＋占断必须标据，防幻觉闸门
   redline.py     红线拦截：医疗/投资/法律/寿夭类问题拒答
   lunar.py       公历→农历（cnlunar），流派约定显式标注
   service.py     单一模式流水线门面（三占同起/主断路由/语境合参/解读/
                  追问，GUI 复用；ALGORITHM.md）
-  gui.py         图形界面（Tkinter 标准库，打包为 yijing-agent-gui.exe）
+  gui.py         图形界面（Tkinter 标准库，打包为 tianwen-gui.exe）
   ziwei/         紫微命引擎（v2）：
     chart.py       排盘（安星诀逐条代码化，流派约定显式选定）
     brightness.py  《全书·卷二》庙陷表逐格转录
@@ -247,7 +249,7 @@ py -m pytest tests/ -q
 （CC BY-SA 4.0 同上）；排盘安星诀逐条注于源码，命例回归集对照 iztro
 排盘库（流派分歧处如实标注并按底本实现）。以上**均尚未依通行本人工
 校对**——校对流程与状态见
-[yijing_agent/data/PROOFREADING.md](yijing_agent/data/PROOFREADING.md)。
+[tianwen/data/PROOFREADING.md](tianwen/data/PROOFREADING.md)。
 
 ## 免责声明
 

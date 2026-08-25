@@ -10,10 +10,10 @@
 之下换 SQLite FTS 之类即可，三个入口不变。
 
 命令行（数据模块自查用，亦可日常翻书）：
-    python -m yijing_agent.corpus 大衍之数            # 关键词检索
-    python -m yijing_agent.corpus --cite 体用总诀      # 按古籍原名取全文
-    python -m yijing_agent.corpus --cite xici:shang:9  # 按内部编号取全文
-    python -m yijing_agent.corpus --catalog            # 藏书目录
+    python -m tianwen.corpus 大衍之数            # 关键词检索
+    python -m tianwen.corpus --cite 体用总诀      # 按古籍原名取全文
+    python -m tianwen.corpus --cite xici:shang:9  # 按内部编号取全文
+    python -m tianwen.corpus --catalog            # 藏书目录
 
 对外展示一律用古籍原名（内部编号 cite_id 只在校验层流转），故 --cite
 两者皆认：编号未中即按出处名（去标点）片段查，唯一命中即出全文。
@@ -152,7 +152,7 @@ def search(query, limit=8, context=18):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        prog="python -m yijing_agent.corpus",
+        prog="python -m tianwen.corpus",
         description="藏书检索：关键词查典籍、按引文编号取全文、看藏书目录")
     ap.add_argument("query", nargs="*", help="检索关键词（标点无关）")
     ap.add_argument("--cite", help="按古籍原名（如 体用总诀）或内部编号"

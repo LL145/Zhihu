@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pytest
 
-from yijing_agent import service
+from tianwen import service
 
 WHEN = datetime(2026, 8, 24, 11, 0)
 BIRTH = datetime(2000, 9, 14, 12, 0)
@@ -223,7 +223,7 @@ def test_degraded_conclusion_first():
 
 def test_citations_render_as_book_names():
     # 展示层 humanize：内部编号 → 古籍原名；未知编号原样保留不吞不改
-    from yijing_agent import report
+    from tianwen import report
     s = _full()
     out = report.humanize("断 [zhouyi:1:guaci]，取象 [shuogua:11:qian]，"
                           "伪 [nothing:9]", s.resolve_cite)

@@ -1,4 +1,4 @@
-"""从中文维基文库《紫微斗數全書》导入紫微库第一期 → yijing_agent/data/ziwei.json。
+"""从中文维基文库《紫微斗數全書》导入紫微库第一期 → tianwen/data/ziwei.json。
 
 范围（DESIGN §9 v2 第 2 项：十四主星入十二宫断语 + 庙旺平陷）：
 - 卷二「一命宫」节：十四主星逐星之命宫断语（论断文 + 分宫格诗 +
@@ -7,10 +7,10 @@
   禄存羊陀火铃空劫天马等辅煞与斗君行）；
 - 卷一「诸星问答论」：十四主星及所安辅煞诸星问答（解读语境用）；
 - 卷三「论大限十年祸福何如」「论二限太岁吉凶」（时运问语境用）。
-庙陷表已单独转录为代码表（yijing_agent/ziwei/brightness.py），不入此库。
+庙陷表已单独转录为代码表（tianwen/ziwei/brightness.py），不入此库。
 
 用法：
-    python tools/import_wikisource_ziwei.py [--cache-dir .cache_ziwei] [--out yijing_agent/data/ziwei.json]
+    python tools/import_wikisource_ziwei.py [--cache-dir .cache_ziwei] [--out tianwen/data/ziwei.json]
 
 许可：维基文库文本 CC BY-SA 4.0（古籍原文公版，现代标点为贡献者所加）；
 meta.pages 记录各页面 oldid 以为署名。繁→简用 OpenCC t2s。
@@ -33,7 +33,7 @@ from opencc import OpenCC
 
 ROOT = Path(__file__).parent.parent
 API = "https://zh.wikisource.org/w/api.php"
-UA = "ZhihuFortuneAgent/0.1 (typiary import; github LL145/Zhihu)"
+UA = "TianwenAgent/0.1 (typiary import; github LL145/Zhihu)"
 CA = "/root/.ccr/ca-bundle.crt"
 PAGES = ["紫微斗數全書/卷一", "紫微斗數全書/卷二", "紫微斗數全書/卷三"]
 
@@ -333,7 +333,7 @@ def parse_wenda(secs, records, warnings):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache-dir", default=str(ROOT / ".cache_ziwei"))
-    ap.add_argument("--out", default=str(ROOT / "yijing_agent" / "data" / "ziwei.json"))
+    ap.add_argument("--out", default=str(ROOT / "tianwen" / "data" / "ziwei.json"))
     args = ap.parse_args()
 
     pages, texts = {}, {}

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from yijing_agent.validator import _CITE_MARK
-from yijing_agent.ziwei.knowledge import ZiweiKB
+from tianwen.validator import _CITE_MARK
+from tianwen.ziwei.knowledge import ZiweiKB
 
-DATA = Path(__file__).parent.parent / "yijing_agent" / "data" / "ziwei.json"
+DATA = Path(__file__).parent.parent / "tianwen" / "data" / "ziwei.json"
 
 
 @pytest.fixture(scope="module")

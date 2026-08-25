@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from yijing_agent import llm, selection
-from yijing_agent.knowledge import YIZHUAN_PATH, KnowledgeBase
-from yijing_agent.trigrams import PINYIN
-from yijing_agent.validator import validate
+from tianwen import llm, selection
+from tianwen.knowledge import YIZHUAN_PATH, KnowledgeBase
+from tianwen.trigrams import PINYIN
+from tianwen.validator import validate
 
 kb = KnowledgeBase()
 

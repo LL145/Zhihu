@@ -4,8 +4,8 @@ from datetime import datetime
 
 import pytest
 
-from yijing_agent.ziwei import chart, selection
-from yijing_agent.ziwei.knowledge import ZiweiKB
+from tianwen.ziwei import chart, selection
+from tianwen.ziwei.knowledge import ZiweiKB
 
 
 @pytest.fixture(scope="module")
@@ -125,7 +125,7 @@ def test_destiny_with_aspect(zkb, c2000):
 
 def test_select_context_for_event(zkb, c2000):
     # 合参（§6.2）：问事业的具体事 → 官禄宫断语，仅作语境（无 primary）
-    from yijing_agent import topic
+    from tianwen import topic
     tp = topic.classify("近期换一份工作是否合适")
     sel = selection.select_context(zkb, c2000, tp, "近期换一份工作是否合适")
     assert sel.readings
@@ -137,7 +137,7 @@ def test_select_context_for_event(zkb, c2000):
 
 def test_select_context_fallback_ming(zkb, c2000):
     # 无专属之宫的问事 → 命宫主星论断文作语境
-    from yijing_agent import topic
+    from tianwen import topic
     tp = topic.classify("明日天气如何")
     sel = selection.select_context(zkb, c2000, tp, "明日天气如何")
     assert sel.readings

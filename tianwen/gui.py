@@ -1,7 +1,7 @@
 """图形界面（Tkinter，Python 标准库，无额外依赖）。
 
-    python -m yijing_agent.gui
-打包版为 yijing-agent-gui.exe（PyInstaller --windowed）。
+    python -m tianwen.gui
+打包版为 tianwen-gui.exe（PyInstaller --windowed）。
 
 界面只做输入输出与线程调度；起卦/排盘/选文/结论走 service 门面，
 大模型解读与追问在工作线程执行，结果经队列回主线程刷新。
@@ -19,7 +19,7 @@ from . import config, lunar, service, topic
 from .llm import InterpreterError
 from .trigrams import ZHI
 
-_TITLE = "算命 Agent —— 有典可依、可复现（单一模式：三占同起，主断唯一）"
+_TITLE = "天问 —— 有典可依、可复现（单一模式：三占同起，主断唯一）"
 _SHICHEN_CHOICES = ["未知"] + [z + "时" for z in ZHI]
 # 出生年份下拉范围：今年（北京时间）起倒排至 1920（cnlunar 支持下限之内）
 _YEAR_CHOICES = [""] + [str(y) for y in range(lunar.now_beijing().year, 1919, -1)]

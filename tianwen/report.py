@@ -3,7 +3,7 @@
 
 内部引文编号（cite_id，如 zhouyi:49:yao:5）只在校验层流转；对外展示
 一律换成古籍原名（humanize：〔《周易·革·九五》爻辞〕），编号可用
-py -m yijing_agent.corpus 按书名或编号取全文核对。"""
+py -m tianwen.corpus 按书名或编号取全文核对。"""
 
 import re
 
@@ -70,7 +70,7 @@ def render_repro(cast):
 
 def render_readings_compact(kb, selection):
     """所据原文节选：主断条目附全文（含所系传文），其余只列古籍原名；
-    全文可用 python -m yijing_agent.corpus --cite <书名> 随时核对。"""
+    全文可用 python -m tianwen.corpus --cite <书名> 随时核对。"""
     out = [f"── 所据原文（{selection.rule}；节选，全文见 corpus） " + "─" * 4]
     notes = getattr(selection, "notes", None) or ()
     for note in notes:

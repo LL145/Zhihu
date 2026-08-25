@@ -1,9 +1,9 @@
 """命令行入口（单一模式，ALGORITHM.md）。
 
 用法示例：
-    python -m yijing_agent -q "近期换工作是否合适" --name 李明 \
+    python -m tianwen -q "近期换工作是否合适" --name 李明 \
         --birth 2000-09-14 --birth-time 午 --gender 男
-    python -m yijing_agent -q "……" --when "2026-08-24 15:30" --no-llm
+    python -m tianwen -q "……" --when "2026-08-24 15:30" --no-llm
 
 输入固定五项：问什么＋姓名＋生日＋出生时辰＋性别。三占同起（时间卦、
 姓名卦、紫微盘），吉凶只从主断一处出；输入不全只减少参照（如实说明），
@@ -127,7 +127,7 @@ def _print_key_hint():
 def main(argv=None):
     _ensure_utf8_stdout()
     p = argparse.ArgumentParser(
-        prog="yijing_agent",
+        prog="tianwen",
         description="有典可依、可复现的占断（单一模式：三占同起，主断唯一；"
                     "流程与逐步典据见 ALGORITHM.md）")
     p.add_argument("-q", "--question", help="所问之事（不传则进入交互输入）")

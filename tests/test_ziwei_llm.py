@@ -4,10 +4,10 @@ from datetime import datetime
 
 import pytest
 
-from yijing_agent.validator import validate, validate_followup
-from yijing_agent.ziwei import chart, selection
-from yijing_agent.ziwei import llm as zllm
-from yijing_agent.ziwei.knowledge import ZiweiKB
+from tianwen.validator import validate, validate_followup
+from tianwen.ziwei import chart, selection
+from tianwen.ziwei import llm as zllm
+from tianwen.ziwei.knowledge import ZiweiKB
 
 
 @pytest.fixture(scope="module")
@@ -30,7 +30,7 @@ def test_allowed_texts(env):
 
 def test_payload_structure(env):
     zkb, c, sel, vd = env
-    from yijing_agent import topic
+    from tianwen import topic
     tp = topic.classify("我今年运势如何")
     allowed = zllm._allowed_texts(zkb, sel)
     p = zllm._payload("我今年运势如何", c, sel, vd, allowed, zkb, tp)

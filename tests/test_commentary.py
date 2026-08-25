@@ -4,9 +4,9 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from yijing_agent import casting, llm, selection, topic, verdict
-from yijing_agent.knowledge import KnowledgeBase, WANGBI_PATH, wangbi_id
-from yijing_agent.validator import validate
+from tianwen import casting, llm, selection, topic, verdict
+from tianwen.knowledge import KnowledgeBase, WANGBI_PATH, wangbi_id
+from tianwen.validator import validate
 
 kb = KnowledgeBase()
 

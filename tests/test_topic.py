@@ -1,6 +1,6 @@
 """问事分类测试：关键词命中、优先级、命理类提示、兜底。"""
 
-from yijing_agent import topic
+from tianwen import topic
 
 
 def test_career_beats_choice():

@@ -1,6 +1,6 @@
 """引文校验器测试：幻觉闸门必须挡住不实引文、越界出处与语境立断。"""
 
-from yijing_agent.validator import normalize, validate, validate_followup
+from tianwen.validator import normalize, validate, validate_followup
 
 ALLOWED = {
     "zhouyi:1:yao:4": "或跃在渊，无咎。",

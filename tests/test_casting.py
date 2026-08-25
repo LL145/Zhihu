@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from yijing_agent import casting, lunar
-from yijing_agent.knowledge import KnowledgeBase
+from tianwen import casting, lunar
+from tianwen.knowledge import KnowledgeBase
 
 kb = KnowledgeBase()
 
@@ -61,7 +61,7 @@ def test_meihua_always_one_moving():
 
 
 def test_strokes_table_known():
-    from yijing_agent import strokes
+    from tianwen import strokes
     assert strokes.total_strokes("李") == 7
     assert strokes.total_strokes("明") == 8
     assert strokes.total_strokes("林") == 8

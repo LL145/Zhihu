@@ -160,7 +160,7 @@ def _request(cfg, messages, timeout, temperature=0.4):
         headers={
             "Authorization": f"Bearer {cfg['api_key']}",
             "Content-Type": "application/json",
-            "X-Title": "Zhihu Yijing Agent",
+            "X-Title": "Tianwen",
         },
         json={"model": cfg["model"], "messages": messages,
               "temperature": temperature},

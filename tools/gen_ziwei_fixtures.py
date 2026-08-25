@@ -5,7 +5,7 @@
     pip install py-iztro
     python tools/gen_ziwei_fixtures.py
 
-对照口径（流派分歧处不比或改比，见 yijing_agent/ziwei/chart.py 顶注）：
+对照口径（流派分歧处不比或改比，见 tianwen/ziwei/chart.py 顶注）：
 - 比：农历换算、五行局、十二宫名/宫干/支、身宫、大限起止、
   十四主星与昌曲辅弼魁钺禄马、羊陀火铃空劫十四辅煞的落宫、四化；
 - 壬干年不比化科（《全书》天府化科，iztro 依流行诀作左辅化科）；

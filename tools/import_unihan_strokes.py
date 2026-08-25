@@ -45,7 +45,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--zip", help="本地 Unihan.zip（缺省自 unicode.org 下载）")
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1]
-                                         / "yijing_agent/data/strokes.json"))
+                                         / "tianwen/data/strokes.json"))
     args = ap.parse_args()
 
     data = Path(args.zip).read_bytes() if args.zip else fetch_zip()

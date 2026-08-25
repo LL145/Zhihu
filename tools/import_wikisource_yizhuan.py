@@ -31,12 +31,12 @@ from pathlib import Path
 from opencc import OpenCC
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from yijing_agent.knowledge import KnowledgeBase  # noqa: E402
-from yijing_agent.trigrams import PINYIN  # noqa: E402
-from yijing_agent.validator import normalize  # noqa: E402
+from tianwen.knowledge import KnowledgeBase  # noqa: E402
+from tianwen.trigrams import PINYIN  # noqa: E402
+from tianwen.validator import normalize  # noqa: E402
 
 API = "https://zh.wikisource.org/w/api.php"
-UA = "ZhihuYijingAgent/0.1 (yijing_agent data import; one-off)"
+UA = "TianwenAgent/0.1 (tianwen data import; one-off)"
 LICENSE = "CC BY-SA 4.0"
 LICENSE_URL = "https://creativecommons.org/licenses/by-sa/4.0/"
 CA_BUNDLE = "/root/.ccr/ca-bundle.crt"
@@ -376,7 +376,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache-dir", help="页面缓存目录（重跑免重新抓取）")
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1]
-                                         / "yijing_agent/data/yizhuan.json"))
+                                         / "tianwen/data/yizhuan.json"))
     args = ap.parse_args()
 
     kb = KnowledgeBase(yizhuan_path=None)

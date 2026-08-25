@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from yijing_agent import selection, service, topic
-from yijing_agent.knowledge import MEIHUA_PATH, KnowledgeBase
+from tianwen import selection, service, topic
+from tianwen.knowledge import MEIHUA_PATH, KnowledgeBase
 
 kb = KnowledgeBase()
 

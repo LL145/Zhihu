@@ -2,8 +2,8 @@
 
 import pytest
 
-from yijing_agent.knowledge import KnowledgeBase
-from yijing_agent.selection import select, select_meihua, select_zhuzi
+from tianwen.knowledge import KnowledgeBase
+from tianwen.selection import select, select_meihua, select_zhuzi
 
 kb = KnowledgeBase()
 

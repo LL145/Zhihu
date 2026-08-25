@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from yijing_agent.trigrams import ZHI
-from yijing_agent.ziwei import brightness, chart
+from tianwen.trigrams import ZHI
+from tianwen.ziwei import brightness, chart
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ziwei_iztro.json"
 

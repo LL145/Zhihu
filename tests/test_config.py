@@ -2,7 +2,7 @@
 
 import json
 
-from yijing_agent import config
+from tianwen import config
 
 
 def _isolate(monkeypatch, tmp_path, files=()):

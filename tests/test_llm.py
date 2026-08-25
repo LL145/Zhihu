@@ -5,8 +5,8 @@ from datetime import datetime
 
 import pytest
 
-from yijing_agent import casting, llm, selection, topic, verdict
-from yijing_agent.knowledge import KnowledgeBase
+from tianwen import casting, llm, selection, topic, verdict
+from tianwen.knowledge import KnowledgeBase
 
 kb = KnowledgeBase()
 CFG = {"api_key": "test", "model": "test/model", "base_url": "https://example.invalid/api/v1"}
@@ -141,9 +141,9 @@ def test_classify_topic(monkeypatch):
 
 
 def _ziwei_context_block():
-    from yijing_agent.ziwei import chart as zchart
-    from yijing_agent.ziwei import selection as zselection
-    from yijing_agent.ziwei.knowledge import ZiweiKB
+    from tianwen.ziwei import chart as zchart
+    from tianwen.ziwei import selection as zselection
+    from tianwen.ziwei.knowledge import ZiweiKB
 
     q = "近期换一份工作是否合适"
     tp = topic.classify(q)

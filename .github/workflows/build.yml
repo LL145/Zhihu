@@ -31,28 +31,28 @@ jobs:
 
       - name: 打包单文件可执行（命令行版 + 界面版）
         run: |
-          pyinstaller --onefile --name yijing-agent --add-data "yijing_agent/data;yijing_agent/data" run.py
-          pyinstaller --onefile --windowed --name yijing-agent-gui --add-data "yijing_agent/data;yijing_agent/data" run_gui.py
+          pyinstaller --onefile --name tianwen --add-data "tianwen/data;tianwen/data" run.py
+          pyinstaller --onefile --windowed --name tianwen-gui --add-data "tianwen/data;tianwen/data" run_gui.py
 
       - name: 冒烟测试（无 LLM 模式）
         run: |
-          ./dist/yijing-agent.exe -q "test question" --when "2026-08-24 15:30" --no-llm
-          ./dist/yijing-agent.exe -q "我今年运势如何" --birth 2000-09-14 --birth-time 午 --gender 男 --when "2026-08-24 15:30" --no-llm
-          python -c "import yijing_agent.gui"
+          ./dist/tianwen.exe -q "test question" --when "2026-08-24 15:30" --no-llm
+          ./dist/tianwen.exe -q "我今年运势如何" --birth 2000-09-14 --birth-time 午 --gender 男 --when "2026-08-24 15:30" --no-llm
+          python -c "import tianwen.gui"
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: yijing-agent-windows
+          name: tianwen-windows
           path: |
-            dist/yijing-agent.exe
-            dist/yijing-agent-gui.exe
+            dist/tianwen.exe
+            dist/tianwen-gui.exe
 
       - name: 发布 Release（仅 v* 标签）
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/yijing-agent.exe
-            dist/yijing-agent-gui.exe
+            dist/tianwen.exe
+            dist/tianwen-gui.exe
           generate_release_notes: true

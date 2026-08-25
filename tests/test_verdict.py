@@ -1,7 +1,7 @@
 """断辞提取与结论映射测试（以真实经文为用例）。"""
 
-from yijing_agent import verdict
-from yijing_agent.knowledge import KnowledgeBase
+from tianwen import verdict
+from tianwen.knowledge import KnowledgeBase
 
 kb = KnowledgeBase()
 

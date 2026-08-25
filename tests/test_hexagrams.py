@@ -2,9 +2,9 @@
 
 import pytest
 
-from yijing_agent import hexagrams
-from yijing_agent.knowledge import KnowledgeBase
-from yijing_agent.trigrams import TRIGRAMS
+from tianwen import hexagrams
+from tianwen.knowledge import KnowledgeBase
+from tianwen.trigrams import TRIGRAMS
 
 kb = KnowledgeBase()
 
