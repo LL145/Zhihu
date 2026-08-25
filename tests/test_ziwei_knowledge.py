@@ -44,7 +44,13 @@ def test_record_counts(raw):
     assert kinds["lun"] == 2
     assert kinds["gong"] >= 240         # 十一宫逐星断语
     assert kinds["ding"] == 5           # 官禄宫定公卿等
-    assert len(raw["records"]) >= 420
+    # 紫微库二期：卷一赋文与格局诸诀
+    assert kinds["fu"] == 11            # 太微赋…失陷贫贱论整节条目
+    assert kinds["shideng"] == 10       # 定富贵贫贱十等论
+    assert kinds["hege"] == 12          # 得地合格诀，十二宫支各一
+    assert kinds["poge"] >= 9           # 失陷破格诀（行可兼数宫支）
+    assert kinds["ju"] >= 40            # 定富/贵/贫贱/杂局逐局
+    assert len(raw["records"]) >= 510
 
 
 def test_cite_ids_match_validator_regex(raw):
@@ -94,3 +100,26 @@ def test_source_labels(zkb):
     c = zkb.citation("ziwei:1:wenda:jumen")
     assert c["source"].startswith("《紫微斗数全书》")
     assert "问巨门" in c["source"]
+
+
+def test_fu_sections(raw, zkb):
+    """卷一赋文与格局诸诀（紫微库二期）。"""
+    c = zkb.citation("ziwei:1:fu:taiwei")
+    assert "太微赋" in c["source"]
+    assert "斗数至玄至微" in c["text"]
+    assert "骨髓赋" in zkb.citation("ziwei:1:fu:gusui")["source"]
+    assert "女命骨髓赋" in zkb.citation("ziwei:1:fu:nvgusui")["source"]
+    # 合格诀十二宫支齐备，branches 已归一（含底本「戍」）
+    for seg, b in [("zi", "子"), ("xu", "戌"), ("hai", "亥")]:
+        r = raw["records"][f"ziwei:1:hege:{seg}"]
+        assert r["branches"] == [b]
+        assert "安命" in r["text"]
+    # 破格诀行可兼数宫支
+    brs = [b for r in raw["records"].values() if r["kind"] == "poge"
+           for b in r["branches"]]
+    assert len(brs) == 12 and set(brs) == set("子丑寅卯辰巳午未申酉戌亥")
+    # 定局逐局有局名入 source
+    gui = [r for cid, r in raw["records"].items()
+           if cid.startswith("ziwei:1:ju:gui:")]
+    assert len(gui) >= 20
+    assert any(r["source"].endswith("君臣庆会") for r in gui)

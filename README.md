@@ -116,6 +116,9 @@ py -m tianwen -q "所问之事" --when "2026-08-24 15:30"
 py -m tianwen -q "所问之事" --no-llm --full
 
 # 翻书：跨全部典籍关键词检索 / 按书名或编号取全文 / 藏书目录
+# 现藏：周易经传（十翼全）、王弼《周易注》、《梅花易数》卷一二、
+#       《京氏易传》《火珠林》《黄金策》（六爻典据，暂只供翻检）、
+#       《紫微斗数全书》卷一至三（含赋文格诀）
 py -m tianwen.corpus 大衍之数
 py -m tianwen.corpus --cite 西林寺牌额占
 py -m tianwen.corpus --cite xici:shang:9
@@ -207,8 +210,10 @@ tianwen/
                  yizhuan.json 十翼补编（说卦、系辞上下、序卦、杂卦、
                  乾坤文言）；meihua.json 《梅花易数》卷一（起卦诸法、
                  占例、类象）与卷二（体用总诀＋十八占）；ziwei.json
-                 《紫微斗数全书》断语库（429 条）；strokes.json 汉字
-                 笔画表（Unicode Unihan kTotalStrokes）
+                 《紫微斗数全书》断语库（520 条，含卷一赋文格诀）；
+                 jingfang/huozhulin/huangjince.json 《京氏易传》
+                 《火珠林》《黄金策》（六爻纳甲典据，藏书层）；
+                 strokes.json 汉字笔画表（Unicode Unihan kTotalStrokes）
 tools/
   import_openiching.py        从 open-iching 仓库导入并校验典籍数据
   import_wikisource_wangbi.py 从维基文库《周易正義》导入王弼注（经文锚定对齐）
@@ -216,9 +221,11 @@ tools/
                               系辞序卦杂卦取白文《易傳》页面）
   import_wikisource_meihua.py 从维基文库《梅花易數》导入卷一、卷二全部章节
   import_wikisource_ziwei.py  从维基文库《紫微斗數全書》导入紫微库
+  import_wikisource_liuyao.py 从维基文库导入六爻纳甲典籍层（京氏易传、
+                              火珠林、黄金策；v4 起卦引擎之典据先行）
   import_unihan_strokes.py    从 Unicode 官方 Unihan 导入汉字笔画表（字占用）
   gen_ziwei_fixtures.py       以 py-iztro 生成排盘命例回归集（开发机用）
-tests/           207 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
+tests/           217 项测试：起卦确定性、占法七情形、断辞映射、问事分类、
                  注疏与文言挂载、说卦体用取象、占章按类附取、藏书检索、
                  引文校验（含主断唯一）、LLM 重试与追问、单一模式路由与
                  语境合参；紫微排盘 21 命例回归（对照 iztro）、安星诀

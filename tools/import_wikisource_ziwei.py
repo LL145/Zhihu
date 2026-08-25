@@ -9,6 +9,18 @@
 - 卷三「论大限十年祸福何如」「论二限太岁吉凶」（时运问语境用）。
 庙陷表已单独转录为代码表（tianwen/ziwei/brightness.py），不入此库。
 
+紫微库二期（DESIGN §9 v2.5 格局识别之典据；解读语境用，不参与结论）：
+- 卷一赋文诸论整节成条（FU_SECTIONS）：太微赋、形性赋、星垣论、
+  斗数准绳、斗数发微论、重补斗数彀率、增补太微赋、斗数骨髓赋、
+  女命骨髓赋、十二宫诸星得地富贵论、十二宫诸星失陷贫贱论；
+- 逐行成条：定富贵贫贱十等论（shideng）、十二宫诸星得地合格诀
+  （hege，按安命宫支）、十二宫诸星失陷破格诀（poge）、定富局／
+  定贵局／定贫贱局／定杂局（ju，按局名）。
+- 不取罗序（明人序文，非占断内容）；诸星问答论仍依 WENDA 白名单
+  （流年昌曲、天刑天姚哭虚伤使等本盘未安之星不取）。
+- 底本「安命」宫支多以「戍」为「戌」：文本一仍其旧，宫支标注
+  （branches）归一作「戌」，见 warnings。
+
 用法：
     python tools/import_wikisource_ziwei.py [--cache-dir .cache_ziwei] [--out tianwen/data/ziwei.json]
 
@@ -106,6 +118,25 @@ FIXES = [
 ]
 
 BRANCHES = "子丑寅卯辰巳午未申酉戌亥"
+
+# ── 紫微库二期：卷一赋文与格局诸诀 ──────────────────────────────────
+
+#: 整节成条的赋文诸论：节标题 → cite_id 段
+FU_SECTIONS = [
+    ("太微赋", "taiwei"), ("形性赋", "xingxing"), ("星垣论", "xingyuan"),
+    ("斗数准绳", "zhunsheng"), ("斗数发微论", "fawei"),
+    ("重补斗数彀率", "goulv"), ("增补太微赋", "zengtaiwei"),
+    ("斗数骨髓赋", "gusui"), ("女命骨髓赋", "nvgusui"),
+    ("十二宫诸星得地富贵论", "dedifugui"),
+    ("十二宫诸星失陷贫贱论", "shixianpinjian"),
+]
+
+#: 定局诸节（逐行一局）：节标题 → cite_id 段
+JU_SECTIONS = [("定富局", "fu"), ("定贵局", "gui"),
+               ("定贫贱局", "pinjian"), ("定杂局", "za")]
+
+BRANCH_SEG = dict(zip(BRANCHES, ["zi", "chou", "yin", "mao", "chen", "si",
+                                 "wu", "wei", "shen", "you", "xu", "hai"]))
 
 
 def fetch_page(title, cache_dir):
@@ -309,6 +340,98 @@ def parse_gong(body, palace, pkey, records, warnings):
         }
 
 
+def _sec_lines(body):
+    """节正文 → 非空行列表（去 poem 标签，行内连续空白并作一格）。"""
+    text = re.sub(r"</?poem>", "", body)
+    return [re.sub(r"\s+", " ", l.strip()) for l in text.splitlines()
+            if l.strip()]
+
+
+def _branch_of(ch, where, warnings):
+    """安命宫支字符归一（底本多以「戍」为「戌」，文本一仍其旧）。"""
+    if ch == "戍":
+        warnings.append(f"{where}：底本「戍」依文义作宫支「戌」标注（文本未改）")
+        return "戌"
+    assert ch in BRANCHES, f"{where}：未知宫支 {ch}"
+    return ch
+
+
+def parse_fu(secs, records, warnings):
+    """卷一赋文诸论：整节一条（kind=fu）。"""
+    bodies = {re.sub(r"\s", "", t): b for _, t, b in secs}
+    for title, seg in FU_SECTIONS:
+        assert title in bodies, f"卷一缺节：{title}"
+        prose = _prose(re.sub(r"</?poem>", "", bodies[title]).splitlines())
+        assert len(prose) > 100, f"{title} 过短：{len(prose)}"
+        records[f"ziwei:1:fu:{seg}"] = {
+            "text": prose, "kind": "fu", "stars": [], "palace": None,
+            "source": f"紫微斗数全书·卷一·{title}",
+        }
+
+
+def parse_shideng(body, records, warnings):
+    """定富贵贫贱十等论：逐行一论（kind=shideng）。"""
+    n = 0
+    for line in _sec_lines(body):
+        m = re.match(r"^([一-鿿]{1,4}论) (\S.*)$", line)
+        assert m, f"十等论行格式异常：{line[:20]}"
+        n += 1
+        records[f"ziwei:1:shideng:{n}"] = {
+            "text": line, "kind": "shideng", "stars": [], "palace": None,
+            "source": f"紫微斗数全书·卷一·定富贵贫贱十等论·{m.group(1)}",
+        }
+    if n != 10:
+        warnings.append(f"定富贵贫贱十等论共 {n} 条（名为十等）")
+
+
+def parse_hege(body, records, warnings):
+    """十二宫诸星得地合格诀：逐行一宫支（kind=hege）。"""
+    got = set()
+    for line in _sec_lines(body):
+        m = re.match(r"^([子丑寅卯辰巳午未申酉戌亥戍])安命 (\S.*)$", line)
+        assert m, f"合格诀行格式异常：{line[:20]}"
+        b = _branch_of(m.group(1), "得地合格诀", warnings)
+        assert b not in got, f"合格诀 {b} 重出"
+        got.add(b)
+        records[f"ziwei:1:hege:{BRANCH_SEG[b]}"] = {
+            "text": line, "kind": "hege", "stars": [], "palace": None,
+            "branches": [b],
+            "source": f"紫微斗数全书·卷一·十二宫诸星得地合格诀·{m.group(1)}安命",
+        }
+    assert got == set(BRANCHES), f"合格诀缺宫支：{set(BRANCHES) - got}"
+
+
+def parse_poge(body, records, warnings):
+    """十二宫诸星失陷破格诀：逐行成条，行可兼数宫支（kind=poge）。"""
+    seen = set()
+    for n, line in enumerate(_sec_lines(body), 1):
+        m = re.match(r"^([子丑寅卯辰巳午未申酉戌亥戍]{1,3})安命 (\S.*)$", line)
+        assert m, f"破格诀行格式异常：{line[:20]}"
+        brs = [_branch_of(ch, "失陷破格诀", warnings) for ch in m.group(1)]
+        seen.update(brs)
+        records[f"ziwei:1:poge:{n}"] = {
+            "text": line, "kind": "poge", "stars": [], "palace": None,
+            "branches": brs,
+            "source": f"紫微斗数全书·卷一·十二宫诸星失陷破格诀·{m.group(1)}安命",
+        }
+    if seen != set(BRANCHES):
+        warnings.append(f"失陷破格诀未及宫支：{''.join(sorted(set(BRANCHES) - seen))}")
+
+
+def parse_ju(body, title, cat, records, warnings):
+    """定富局／定贵局／定贫贱局／定杂局：逐行一局（kind=ju）。"""
+    n = 0
+    for line in _sec_lines(body):
+        m = re.match(r"^(\S{2,6}) (\S.*)$", line)
+        assert m, f"{title}行格式异常：{line[:20]}"
+        n += 1
+        records[f"ziwei:1:ju:{cat}:{n}"] = {
+            "text": line, "kind": "ju", "stars": [], "palace": None,
+            "source": f"紫微斗数全书·卷一·{title}·{m.group(1)}",
+        }
+    assert n, f"{title} 无局"
+
+
 def parse_wenda(secs, records, warnings):
     got = set()
     for lv, title, body in secs:
@@ -352,7 +475,17 @@ def main():
                     if re.sub(r"\s", "", t) == sect.replace(" ", ""))
         parse_gong(body, palace, pkey, records, warnings)
 
-    parse_wenda(sections(texts["卷一"]), records, warnings)
+    secs1 = sections(texts["卷一"])
+    parse_wenda(secs1, records, warnings)
+
+    # 紫微库二期：卷一赋文与格局诸诀
+    parse_fu(secs1, records, warnings)
+    bodies1 = {re.sub(r"\s", "", t): b for _, t, b in secs1}
+    parse_shideng(bodies1["定富贵贫贱十等论"], records, warnings)
+    parse_hege(bodies1["十二宫诸星得地合格诀"], records, warnings)
+    parse_poge(bodies1["十二宫诸星失陷破格诀"], records, warnings)
+    for title, cat in JU_SECTIONS:
+        parse_ju(bodies1[title], title, cat, records, warnings)
 
     for t3, seg, label in [("论大限十年祸福何如", "daxian", "论大限十年祸福何如"),
                            ("论二限太岁吉凶", "erxian", "论二限太岁吉凶")]:
@@ -382,7 +515,9 @@ def main():
             "base_url": "https://zh.wikisource.org/wiki/",
             "pages": pages,
             "license": "文本 CC BY-SA 4.0（古籍原文公版，现代标点为维基文库贡献者所加）",
-            "conversion": "繁→简 OpenCC t2s；《全书》「天空」（空劫之空）对应本盘星名「地空」",
+            "conversion": "繁→简 OpenCC t2s；《全书》「天空」（空劫之空）对应本盘星名「地空」；"
+                          "格诀逐行条目行内连续空白并作一格；"
+                          "「安命」宫支底本「戍」依文义归一作「戌」入 branches（文本未改）",
             "fixes": [f"{w}→{r or '（删）'}：{note}" for w, r, note in FIXES],
             "imported": _dt.date.today().isoformat(),
             "proofread": False,

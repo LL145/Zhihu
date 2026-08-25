@@ -34,6 +34,9 @@ BOOKS = [
      ("shuogua:", "xici:", "xugua:", "zagua:", "wenyan:")),
     ("wangbi", "王弼《周易注》", ("wangbi:",)),
     ("meihua", "《梅花易数》卷一、卷二", ("meihua:",)),
+    ("jingfang", "《京氏易传》", ("jingfang:",)),
+    ("huozhulin", "《火珠林》", ("huozhulin:",)),
+    ("huangjince", "《黄金策》", ("huangjince:",)),
     ("ziwei", "《紫微斗数全书》卷一至卷三", ("ziwei:",)),
 ]
 
@@ -78,7 +81,7 @@ def catalog():
     kb, zkb = _kbs()
     metas = {"zhouyi": kb.meta, "yizhuan": kb.yizhuan_meta,
              "wangbi": kb.wangbi_meta, "meihua": kb.meihua_meta,
-             "ziwei": zkb.meta}
+             "ziwei": zkb.meta, **kb.liuyao_meta}
     counts = {}
     for cid, *_rest in _units():
         key = _book_key(cid)
