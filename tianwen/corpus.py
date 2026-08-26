@@ -38,6 +38,7 @@ BOOKS = [
     ("huozhulin", "《火珠林》", ("huozhulin:",)),
     ("huangjince", "《黄金策》", ("huangjince:",)),
     ("ziwei", "《紫微斗数全书》卷一至卷三", ("ziwei:",)),
+    ("tetra", "托勒密《占星四书》（Ashmand 英译）", ("tetra:",)),
 ]
 
 
@@ -55,12 +56,19 @@ def _book_key(cite_id):
 
 @lru_cache(maxsize=1)
 def _units():
-    """[(cite_id, source, text, 规整文, 规整→原文位置表)]，藏书目录次序。"""
+    """[(cite_id, source, text, 规整文, 规整→原文位置表)]，藏书目录次序。
+
+    规整文双轨：单元含汉字则仅保留汉字（汉文典籍），否则小写仅保留
+    字母数字（拉丁字底本，如《占星四书》英译）——检索词同法规整后
+    比对（search）。
+    """
     kb, zkb = _kbs()
     order = {key: i for i, (key, _t, _p) in enumerate(BOOKS)}
     rows = []
     for c in list(kb.citations()) + list(zkb.citations()):
         ntext, idx = _norm_map(c["text"])
+        if not ntext:
+            ntext, idx = _norm_map_latin(c["text"])
         rows.append((c["cite_id"], c["source"], c["text"], ntext, idx))
     rows.sort(key=lambda r: (order.get(_book_key(r[0]), 99), r[0]))
     return rows
@@ -76,12 +84,23 @@ def _norm_map(s):
     return "".join(chars), idx
 
 
+def _norm_map_latin(s):
+    """小写后仅保留字母数字，并记位置（拉丁字底本之规整）。"""
+    chars, idx = [], []
+    for i, ch in enumerate(s):
+        low = ch.lower()
+        if low.isascii() and low.isalnum():
+            chars.append(low)
+            idx.append(i)
+    return "".join(chars), idx
+
+
 def catalog():
     """藏书目录：[{key, work, source, license, units, proofread}, …]。"""
     kb, zkb = _kbs()
     metas = {"zhouyi": kb.meta, "yizhuan": kb.yizhuan_meta,
              "wangbi": kb.wangbi_meta, "meihua": kb.meihua_meta,
-             "ziwei": zkb.meta, **kb.liuyao_meta}
+             "ziwei": zkb.meta, "tetra": kb.tetra_meta, **kb.liuyao_meta}
     counts = {}
     for cid, *_rest in _units():
         key = _book_key(cid)
@@ -130,12 +149,16 @@ def find_source(name):
 def search(query, limit=8, context=18):
     """标点无关关键词检索 → [{cite_id, source, snippet, count}, …]。
 
-    query 只取其中汉字与全库规整文比对；每单元至多一条命中记录，
+    query 含汉字则取其汉字与汉文规整文比对；纯拉丁词则小写字母数字
+    比对（查《占星四书》英译等拉丁字底本）。每单元至多一条命中记录，
     snippet 为首处命中的原文上下文（含标点），count 为该单元命中次数。
     """
     nq, _ = _norm_map(query)
     if not nq:
-        raise ValueError("检索词须含汉字")
+        nq, _ = _norm_map_latin(query)
+        context *= 3   # 英文摘要按词计，上下文放宽
+    if not nq:
+        raise ValueError("检索词须含汉字或拉丁字母")
     hits = []
     for cite_id, source, text, ntext, idx in _units():
         pos = ntext.find(nq)

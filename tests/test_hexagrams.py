@@ -73,7 +73,7 @@ def test_citation_counts():
     # 卦辞64 + 爻辞384 + 用九用六2 + 彖64 + 大象64 + 小象384 + 用九用六小象2
     extra_ns = ("wangbi:", "shuogua:", "wenyan:", "meihua:",
                 "xici:", "xugua:", "zagua:",
-                "jingfang:", "huozhulin:", "huangjince:")
+                "jingfang:", "huozhulin:", "huangjince:", "tetra:")
     scripture = [c for c in kb._citations
                  if not c.startswith(extra_ns)]
     assert len(scripture) == 64 + 384 + 2 + 64 + 64 + 384 + 2

@@ -10,7 +10,7 @@ def test_catalog_lists_all_books():
     keys = [b["key"] for b in cat]
     assert keys == ["zhouyi", "yizhuan", "wangbi", "meihua",
                     "jingfang", "huozhulin", "huangjince", "ziwei",
-                    "strokes"]
+                    "tetra", "strokes"]
     for b in cat:
         assert b["units"] > 0 and b["license"], b["key"]
     by = {b["key"]: b for b in cat}
@@ -44,8 +44,10 @@ def test_search_across_books():
 def test_search_limit_and_errors():
     assert len(corpus.search("君子", limit=3)) == 3
     assert corpus.search("此语必无") == []
+    # 纯拉丁词走英文通道（v3.9《占星四书》），不再报错
+    assert corpus.search("thisstringneverappears") == []
     with pytest.raises(ValueError):
-        corpus.search("abc123")
+        corpus.search("，。！？")
 
 
 def test_find_source_by_book_name(capsys):

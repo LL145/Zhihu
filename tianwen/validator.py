@@ -1,6 +1,9 @@
 """引文校验器：LLM 输出展示前的最后一道确定性闸门。
 
 - 每条引文去标点后须逐字包含于其所标 cite_id 的原文之中；
+  汉文单元以汉字比对；拉丁字底本单元（如《占星四书》英译）以
+  小写字母数字比对——中译引文对拉丁单元规整必为空，结构上保证
+  「引原语底本、中译只作转述」的引文约定（DESIGN.md）；
 - 断语（judgment）必须以 [cite_id] 标注所据——无据不断；
 - 断语所据须落在主断侧文本（primary 集合）上，且须含经传之文
   （王弼注、说卦取象不得单独立断）——语境侧文本不得立断，
@@ -17,6 +20,8 @@
 import re
 
 _CJK = re.compile(r"[^㐀-鿿]")
+_HAN = re.compile(r"[㐀-鿿]")
+_NON_ALNUM = re.compile(r"[^a-z0-9]")
 _CITE_MARK = re.compile(r"\[([a-z]+:[0-9]+(?::[a-z0-9]+)*)\]")
 
 REQUIRED_FIELDS = ("conclusion", "judgment", "reasons", "advice", "quotes")
@@ -26,8 +31,13 @@ _NO_STANDALONE = ("wangbi", "shuogua")
 
 
 def normalize(text: str) -> str:
-    """仅保留汉字，去除标点、引号、空白——「逐字」以此为准。"""
+    """仅保留汉字，去除标点、引号、空白——汉文「逐字」以此为准。"""
     return _CJK.sub("", text)
+
+
+def normalize_latin(text: str) -> str:
+    """拉丁字底本之规整：小写后仅保留字母数字——英译「逐字」以此为准。"""
+    return _NON_ALNUM.sub("", text.lower())
 
 
 def _check_quotes(quotes, allowed, errors):
@@ -40,11 +50,17 @@ def _check_quotes(quotes, allowed, errors):
         if cid not in allowed:
             errors.append(f"quotes[{i}] 的 cite_id 不在本次给定文本之内: {cid}")
             continue
-        nq = normalize(q["text"])
+        ref = allowed[cid]
+        if _HAN.search(ref):
+            nq, nref = normalize(q["text"]), normalize(ref)
+            hint = "须逐字照抄"
+        else:   # 拉丁字底本（如《占星四书》英译）：引文须录原语原文
+            nq, nref = normalize_latin(q["text"]), normalize_latin(ref)
+            hint = "须逐字照录底本原语原文，不得以中译充引文"
         if not nq:
-            errors.append(f"quotes[{i}] 引文为空")
-        elif nq not in normalize(allowed[cid]):
-            errors.append(f"quotes[{i}] 与 {cid} 原文不符（须逐字照抄）: {q['text']}")
+            errors.append(f"quotes[{i}] 引文为空（{hint}）")
+        elif nq not in nref:
+            errors.append(f"quotes[{i}] 与 {cid} 原文不符（{hint}）: {q['text']}")
 
 
 def _check_cite_marks(text, allowed, errors, where):

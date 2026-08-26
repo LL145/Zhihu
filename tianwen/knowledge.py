@@ -51,6 +51,14 @@ data/{jingfang,huozhulin,huangjince}.json，见 tools/import_wikisource_liuyao.p
     huozhulin:{n}             《火珠林》逐节（原书「注云」注文并入正文）。
     huangjince:{n}            《黄金策》逐章（总断千金赋、天时……何知章）。
     占法之书原文，可检索可引用；不参与定例断辞。
+
+西洋占星典籍层（藏书＋语境；data/tetrabiblos.json，
+tools/import_gutenberg_tetrabiblos.py）：
+    tetra:{卷}:{章}           托勒密《占星四书》（Tetrabiblos）四卷逐章，
+                              Ashmand 英译公版底本。引文一律用英译原文
+                              （校验器拉丁通道逐字比对），中译只作解释性
+                              转述；本命盘语境层按判类与题材附章
+                              （astro/natal.py），不参与定例断辞。
 """
 
 import json
@@ -70,6 +78,8 @@ LIUYAO_PATHS = {
     "huangjince": Path(__file__).parent / "data" / "huangjince.json",
 }
 
+TETRA_PATH = Path(__file__).parent / "data" / "tetrabiblos.json"
+
 
 def wangbi_id(scripture_cite_id):
     """经文 cite_id → 对应王弼注 cite_id。"""
@@ -88,6 +98,15 @@ _CH_NUM = ("零", "一", "二", "三", "四", "五", "六", "七", "八", "九",
            "十一", "十二")
 
 
+def _cn_num(n):
+    """1–39 → 汉数（章序展示用）。"""
+    if n < 13:
+        return _CH_NUM[n]
+    tens, ones = divmod(n, 10)
+    return ("" if tens == 1 else _CH_NUM[tens]) + "十" + \
+        (_CH_NUM[ones] if ones else "")
+
+
 def _wenyan_label(gua_name, part):
     """wenyan 单元键（如 guaci / yao:3 / extra）→ 展示名。"""
     if part == "guaci":
@@ -101,7 +120,7 @@ def _wenyan_label(gua_name, part):
 class KnowledgeBase:
     def __init__(self, path=DATA_PATH, wangbi_path=WANGBI_PATH,
                  yizhuan_path=YIZHUAN_PATH, meihua_path=MEIHUA_PATH,
-                 liuyao_paths=None):
+                 liuyao_paths=None, tetra_path=TETRA_PATH):
         raw = json.loads(Path(path).read_text("utf-8"))
         self.meta = raw["meta"]
         self.by_id = {h["id"]: h for h in raw["hexagrams"]}
@@ -196,6 +215,20 @@ class KnowledgeBase:
             for unit in data["units"]:
                 self._add(f"{key}:{unit['id']}",
                           f"《{short}》·{unit['title']}", unit["text"])
+
+        # 西洋占星典籍层：托勒密《占星四书》（Ashmand 英译，藏书＋语境）
+        tp = Path(tetra_path) if tetra_path else None
+        if tp and tp.exists():
+            tb = json.loads(tp.read_text("utf-8"))
+            self.tetra_meta = tb["meta"]
+            juan = {"1": "一", "2": "二", "3": "三", "4": "四"}
+            for unit in tb["units"]:
+                j, c = unit["id"].split(":")
+                self._add(f"tetra:{unit['id']}",
+                          f"《占星四书》卷{juan[j]}·第{_cn_num(int(c))}章"
+                          f"（{unit['title']}）", unit["text"])
+        else:
+            self.tetra_meta = None
 
     def commentary(self, scripture_cite_id):
         """经文单元的王弼注 citation（无注返回 None）。"""

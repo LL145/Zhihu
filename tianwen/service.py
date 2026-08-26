@@ -5,6 +5,8 @@
 （问具体事→问语卦[书写来意，以其字占之]，问命格/时运且有盘→紫微盘），
 时间卦恒作当下之势之参，其余占法只以语境块
 （ContextBlock）进入解读层——结构上杜绝自相矛盾（ALGORITHM.md 五）。
+命理主断时另排西洋本命盘（astro/natal.py，第一期）：同为生辰确定，
+只作参照语境入解读（《占星四书》英译原文可引不可断）。
 
 输入不全只减少参照，不改变流程形状：姓名不合书例则不起姓名卦并说明
 缘由，生辰不全则无盘。所有确定性步骤在构造时同步完成；interpret /
@@ -13,6 +15,7 @@ RefusalError 抛出。
 """
 
 from . import casting, lunar, redline, report, selection, topic, verdict
+from .astro import natal as astro_natal
 from .knowledge import KnowledgeBase
 from .llm import ContextBlock, InterpreterError
 from .llm import classify_topic as _classify_topic
@@ -119,6 +122,12 @@ class Session:
         # 主断路由（约定「卦断事，盘论人」，ALGORITHM.md 四.6）
         self.primary = "chart" if (tp.engine_hint == "chart"
                                    and self.chart is not None) else "event"
+        self.astro = None
+        self.aspect = zselection.detect_aspect(question)[0]
+        if self.primary == "chart":
+            # 西洋本命盘（第一期）：命理主断时另排，只入解读语境
+            # （可引不可断，ALGORITHM.md 步骤 5b/10）
+            self.astro = astro_natal.cast(birth_dt)
         if self.primary == "event":
             ben = self.kb.id_of(self.event_cast.ben_binary)
             zhi = self.kb.id_of(self.event_cast.zhi_binary)
@@ -129,7 +138,7 @@ class Session:
             self.vd = verdict.decide(p.cite_id,
                                      self.kb.citation(p.cite_id)["text"])
         else:
-            aspect = zselection.detect_aspect(question)[0]
+            aspect = self.aspect
             if tp.key == "fortune":
                 self.sel = zselection.select_fortune(self.zkb, self.chart,
                                                      when, aspect)
@@ -207,6 +216,8 @@ class Session:
             desk = self._desk_block()
             if desk is not None:
                 blocks.append(desk)
+        if self.astro is not None:
+            blocks.append(self._astro_block())
         return blocks
 
     _DESK_CAP = 8   # 书桌每星至多召回行数（凭证如实标注）
@@ -236,6 +247,23 @@ class Session:
         items = [(cid, self.zkb.citation(cid)["source"], "\n".join(lns))
                  for cid, lns in by_cid.items()]
         return ContextBlock(title="书桌（候选断语，机械召回）",
+                            notes=notes, items=items)
+
+    def _astro_block(self):
+        """西洋本命盘（第一期）：盘面事实＋《占星四书》总纲章与论题章
+        （恒附 1:5/1:16/1:20/1:22，按判类与题材附卷三卷四之章；寿夭
+        疾病生死诸章属红线主题不附）。引文约定：底本为英译公版，引用
+        须逐字照录英文原文，中译只作解释性转述（校验器拉丁通道强制）。"""
+        items = []
+        for cid in astro_natal.context_chapters(self.tp.key, self.aspect):
+            c = self.kb.citation(f"tetra:{cid}")
+            items.append((c["cite_id"], c["source"], c["text"]))
+        notes = (["由生辰确定性排得（凭证详后），异邦占法只作参照语境，"
+                  "不出第二个吉凶"]
+                 + astro_natal.facts_lines(self.astro)
+                 + ["《占星四书》为英译公版底本：引用须逐字照录英文原文"
+                    "并标 cite_id，中文只可作解释性转述、不得充作引文"])
+        return ContextBlock(title="西洋本命盘（托勒密占星，参照）",
                             notes=notes, items=items)
 
     # ── 呈现（结论先行，ALGORITHM.md 六） ────────────────────────────
@@ -286,6 +314,16 @@ class Session:
             lines.append(f"  紫微盘（{tag}）：命宫在{self.chart.ming_branch}"
                          f"（{majors}），{self.chart.yinyang}，"
                          f"{self.chart.wuxing_ju}")
+        if self.astro is not None:
+            sun = next(p for p in self.astro.placements if p.key == "sun")
+            moon = next(p for p in self.astro.placements if p.key == "moon")
+            got = "、".join(f"{n}{s}" for n, s, _sign in self.astro.dignities) \
+                or "无得位"
+            doubt = "（落宫存疑，详凭证）" if self.astro.moon_uncertain else ""
+            lines.append(f"  西洋本命盘（参·托勒密占星）：太阳"
+                         f"{astro_natal.sign_name(sun.sign_idx)}、月亮"
+                         f"{astro_natal.sign_name(moon.sign_idx)}{doubt}，"
+                         f"{got}")
         audited = "人工审定" if self.vd["audited"] else "自动提取，待人工审定"
         lines.append(f"  定例断辞（主断侧机断，{audited}）："
                      f"【{self.vd['verdict']}】{self.vd['action']}")
@@ -320,6 +358,8 @@ class Session:
             parts.append(report.render_repro(self.name_cast))
         if self.chart is not None:
             parts.append(zreport.render_repro(self.chart))
+        if self.astro is not None:
+            parts.append(astro_natal.render_repro(self.astro))
         if self.desk:
             out = ["── 书桌召回（确定性） " + "─" * 18]
             out.append("  池：《紫微斗数全书·卷一》赋文诸论、十等论、"

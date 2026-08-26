@@ -149,7 +149,8 @@ py -m tianwen -q "所问之事" --no-llm --full
 # 翻书：跨全部典籍关键词检索 / 按书名或编号取全文 / 藏书目录
 # 现藏：周易经传（十翼全）、王弼《周易注》、《梅花易数》卷一二、
 #       《京氏易传》《火珠林》《黄金策》（六爻典据，暂只供翻检）、
-#       《紫微斗数全书》卷一至三（含赋文格诀）
+#       《紫微斗数全书》卷一至三（含赋文格诀）、托勒密《占星四书》
+#       （Ashmand 英译公版，英文检索词亦可）
 py -m tianwen.corpus 大衍之数
 py -m tianwen.corpus --cite 西林寺牌额占
 py -m tianwen.corpus --cite xici:shang:9
@@ -243,6 +244,10 @@ tianwen/
                    格诀按安命宫支、流年二限、问事分宫、合参语境选文）
     llm.py         命盘解读与追问（复用引文校验管线）
     report.py      终端十二宫命盘图与排盘凭证
+  astro/         西洋占星（v3.9 第一期，语境层）：
+    ephemeris.py   七曜地心视黄经（VSOP87D 截断＋Meeus 月表，零依赖）
+    natal.py       本命盘：落宫、本位/擢升/降卑、按宫相位、凭证；
+                   《占星四书》语境选章（引英译原文，中译只作转述）
   data/          知识库数据与校对说明（见 data/PROOFREADING.md）
                  hexagrams.json 经传原文；wangbi.json 王弼《周易注》；
                  yizhuan.json 十翼补编（说卦、系辞上下、序卦、杂卦、
@@ -251,7 +256,9 @@ tianwen/
                  《紫微斗数全书》断语库（520 条，含卷一赋文格诀）；
                  jingfang/huozhulin/huangjince.json 《京氏易传》
                  《火珠林》《黄金策》（六爻纳甲典据，藏书层）；
-                 strokes.json 汉字笔画表（Unicode Unihan kTotalStrokes）
+                 tetrabiblos.json 托勒密《占星四书》（Ashmand 英译公版，
+                 四卷 70 章）；strokes.json 汉字笔画表（Unicode Unihan
+                 kTotalStrokes）；ephemeris.json 七曜星历系数表（数据表）
 web/             网页试用版（GitHub Pages + Pyodide）：index.html 页面、
                  worker.js 加载运行时、app.py 胶水层（浏览器内原样跑
                  本包与校验闸门；胶水层有测试盯守，部署见
@@ -266,8 +273,12 @@ tools/
   import_wikisource_liuyao.py 从维基文库导入六爻纳甲典籍层（京氏易传、
                               火珠林、黄金策；v4 起卦引擎之典据先行）
   import_unihan_strokes.py    从 Unicode 官方 Unihan 导入汉字笔画表（字占用）
+  import_gutenberg_tetrabiblos.py 从 Project Gutenberg 导入《占星四书》
+                              Ashmand 英译（四卷 70 章，西洋占星语料）
+  import_ephemeris_tables.py  生成七曜星历系数表（VSOP87D 截断＋月表，
+                              生成时对照全表自检）
   gen_ziwei_fixtures.py       以 py-iztro 生成排盘命例回归集（开发机用）
-tests/           271 项测试：起卦确定性（含问语起卦）、占法七情形、
+tests/           297 项测试：起卦确定性（含问语起卦）、占法七情形、
                  断辞映射、问事分类、
                  注疏与文言挂载、说卦体用取象、占章按类附取、藏书检索、
                  引文校验（含主断唯一）、LLM 重试与追问、单一模式路由与
