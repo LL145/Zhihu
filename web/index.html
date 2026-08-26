@@ -98,6 +98,7 @@
              font-size: .9rem; }
   #history ul { list-style: none; margin: .4rem 0; padding: 0; }
   #history li { margin: .15rem 0; }
+  .afternote { color: var(--dim); font-size: .82rem; margin: 0 0 .2rem .6rem; }
   footer { color: var(--dim); font-size: .8rem; margin-top: 2.5rem; }
   a { color: var(--accent); }
 </style>
@@ -188,7 +189,7 @@
   </div>
 
   <details id="history">
-    <summary>占问记录（仅存本机浏览器，含追问全文）</summary>
+    <summary>占问记录（仅存本机浏览器，含追问全文；每条可记「后来如何」）</summary>
     <ul id="histlist"></ul>
     <button type="button" class="minor" id="histclear">清除全部记录</button>
   </details>
@@ -276,15 +277,48 @@ function renderHist() {
     b.addEventListener("click", () => {
       const out = $("out");
       out.style.display = "block";
-      out.textContent = r.text;
+      out.textContent = r.text + afterText(r);
       $("viz").style.display = "none";        // 记录只存文本，不存图
       $("outbar").style.display = "block";
       $("followup").style.display = "none";   // 旧会话不可续问，须重起占
       curRec = null;
       out.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
-    li.appendChild(b); ul.appendChild(li);
+    const a = document.createElement("button");
+    a.type = "button"; a.className = "minor";
+    a.textContent = r.after ? "改后事" : "记后事";
+    a.title = "回访：这件事后来如何（仅存本机）";
+    a.addEventListener("click", () => editAfter(r.t));
+    li.appendChild(b); li.appendChild(a);
+    if (r.after) {
+      const s = document.createElement("div");
+      s.className = "afternote";
+      s.textContent = "后事：" + (r.after.text.length > 40
+                      ? r.after.text.slice(0, 40) + "…" : r.after.text);
+      li.appendChild(s);
+    }
+    ul.appendChild(li);
   });
+}
+
+// ── 回访第一期（DESIGN v3.8）：逐条追记「后来如何」，仅存本机 ────
+function afterText(r) {
+  return r.after
+    ? "\n\n── 后事（" + new Date(r.after.t).toLocaleString() +
+      " 自记）────────────\n" + r.after.text
+    : "";
+}
+function editAfter(t) {
+  const h = loadHist(), r = h.find((x) => x.t === t);
+  if (!r) return;
+  const s = prompt("这件事后来如何？如实记下应与不应" +
+                   "（留空可清除；仅存本机浏览器）",
+                   r.after ? r.after.text : "");
+  if (s === null) return;
+  if (s.trim()) r.after = { t: Date.now(), text: s.trim() };
+  else delete r.after;
+  saveHist(h);
+  renderHist();
 }
 function recordRun(question, text) {
   const h = loadHist();
