@@ -104,12 +104,6 @@
           <select id="shichen"></select>
         </div>
       </div>
-      <div class="row">
-        <div>
-          <label for="when">起卦/论限时刻（北京时间；留空取此刻）</label>
-          <input type="datetime-local" id="when">
-        </div>
-      </div>
       <div class="checks">
         <label><input type="checkbox" id="full">附卦画与十二宫盘面</label>
         <label><input type="checkbox" id="nollm">不调大模型（仅定例断辞）</label>
@@ -126,15 +120,9 @@
         </div>
         <div>
           <label for="model">模型</label>
-          <input type="text" id="model" value="z-ai/glm-5.3">
-        </div>
-        <div>
-          <label for="reff">思考力度（低可防深思模型超时）</label>
-          <select id="reff">
-            <option value="low" selected>低（默认）</option>
-            <option value="medium">中</option>
-            <option value="high">高</option>
-            <option value="none">关</option>
+          <select id="model">
+            <option value="z-ai/glm-5.3" selected>z-ai/glm-5.3</option>
+            <option value="qwen/qwen3.8-max">qwen/qwen3.8-max</option>
           </select>
         </div>
       </div>
@@ -193,8 +181,9 @@ ZHI.forEach((z, i) => {
 try {
   $("apikey").value = localStorage.getItem("tw.apiKey") || "";
   $("model").value = localStorage.getItem("tw.model") || "z-ai/glm-5.3";
-  $("reff").value = localStorage.getItem("tw.reff") || "low";
 } catch (e) { /* 隐私模式等禁用存储时忽略 */ }
+// 往期存的模型不在下拉之列（如自由填写时代的值）则回到默认
+if (!$("model").value) $("model").value = "z-ai/glm-5.3";
 
 $("clearkey").addEventListener("click", () => {
   $("apikey").value = "";
@@ -334,7 +323,7 @@ $("form").addEventListener("submit", (ev) => {
   try {
     if (apiKey) localStorage.setItem("tw.apiKey", apiKey);
     localStorage.setItem("tw.model", model);
-    localStorage.setItem("tw.reff", $("reff").value);
+    localStorage.removeItem("tw.reff");   // 思考力度已收敛为恒低，清旧存值
   } catch (e) {}
   $("followup").style.display = "none";
   const useLLM = apiKey && !$("nollm").checked;
@@ -347,11 +336,9 @@ $("form").addEventListener("submit", (ev) => {
     birth: $("birth").value,
     shichen: $("shichen").value,
     gender: $("gender").value,
-    when: $("when").value,
     full: $("full").checked,
     noLLM: $("nollm").checked,
     apiKey, model,
-    reasoningEffort: $("reff").value,
   }});
 });
 
