@@ -43,7 +43,8 @@
 自动部署（`pages` 工作流）。排盘起卦、断语选取与逐字引文校验全部在
 你的浏览器内运行（Pyodide 跑的就是本仓库这份 Python 代码，流程与
 命令行版逐字一致）；要大模型解读就在页面里填自己的 OpenRouter API
-Key（默认模型 `z-ai/glm-5.3`）——Key 只保存在本机浏览器
+Key（默认模型 `z-ai/glm-5.3`；「思考力度」默认低——GLM、Qwen 等深思
+模型不加限常思考数分钟而超时，可按需调中/高/关）——Key 只保存在本机浏览器
 （localStorage），不入仓库，请求由浏览器直达 OpenRouter，不经任何
 第三方服务器。首次打开需加载十余 MB 的 Python 运行时（来自
 cdn.jsdelivr.net）；此后由 Service Worker 缓存，二次打开快、断网
@@ -105,16 +106,20 @@ py -m tianwen.gui
 {
   "api_key": "在这里填入你的 OpenRouter API Key（形如 sk-or-v1-...）",
   "model": "anthropic/claude-sonnet-5",
-  "base_url": "https://openrouter.ai/api/v1"
+  "base_url": "https://openrouter.ai/api/v1",
+  "reasoning_effort": "low"
 }
 ```
 
 - `api_key`：在 [openrouter.ai/keys](https://openrouter.ai/keys) 创建；
-- `model`：OpenRouter 上的任意模型 ID，默认 `anthropic/claude-sonnet-5`。
+- `model`：OpenRouter 上的任意模型 ID，默认 `anthropic/claude-sonnet-5`；
+- `reasoning_effort`：思考力度 `low`/`medium`/`high`/`none`，默认 `low`
+  ——GLM、Qwen 等深思模型不加限常思考数分钟而超时；非思考模型忽略
+  此参数，置空串 `""` 则不向接口发送该字段。
 
 也可用环境变量代替：`OPENROUTER_API_KEY`、`OPENROUTER_MODEL`、
-`OPENROUTER_BASE_URL`（环境变量优先于 config.json）。
-`config.json` 已在 .gitignore 中，不会被提交。
+`OPENROUTER_BASE_URL`、`OPENROUTER_REASONING_EFFORT`（环境变量优先于
+config.json）。`config.json` 已在 .gitignore 中，不会被提交。
 
 ## 用法
 
@@ -254,7 +259,7 @@ tools/
                               火珠林、黄金策；v4 起卦引擎之典据先行）
   import_unihan_strokes.py    从 Unicode 官方 Unihan 导入汉字笔画表（字占用）
   gen_ziwei_fixtures.py       以 py-iztro 生成排盘命例回归集（开发机用）
-tests/           255 项测试：起卦确定性（含问语起卦）、占法七情形、
+tests/           263 项测试：起卦确定性（含问语起卦）、占法七情形、
                  断辞映射、问事分类、
                  注疏与文言挂载、说卦体用取象、占章按类附取、藏书检索、
                  引文校验（含主断唯一）、LLM 重试与追问、单一模式路由与

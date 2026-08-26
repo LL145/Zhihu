@@ -128,6 +128,15 @@
           <label for="model">模型</label>
           <input type="text" id="model" value="z-ai/glm-5.3">
         </div>
+        <div>
+          <label for="reff">思考力度（低可防深思模型超时）</label>
+          <select id="reff">
+            <option value="low" selected>低（默认）</option>
+            <option value="medium">中</option>
+            <option value="high">高</option>
+            <option value="none">关</option>
+          </select>
+        </div>
       </div>
       <p class="hint">Key 只保存在本机浏览器（localStorage），不入仓库、
         不经任何第三方服务器；公用电脑请用后
@@ -184,6 +193,7 @@ ZHI.forEach((z, i) => {
 try {
   $("apikey").value = localStorage.getItem("tw.apiKey") || "";
   $("model").value = localStorage.getItem("tw.model") || "z-ai/glm-5.3";
+  $("reff").value = localStorage.getItem("tw.reff") || "low";
 } catch (e) { /* 隐私模式等禁用存储时忽略 */ }
 
 $("clearkey").addEventListener("click", () => {
@@ -324,6 +334,7 @@ $("form").addEventListener("submit", (ev) => {
   try {
     if (apiKey) localStorage.setItem("tw.apiKey", apiKey);
     localStorage.setItem("tw.model", model);
+    localStorage.setItem("tw.reff", $("reff").value);
   } catch (e) {}
   $("followup").style.display = "none";
   const useLLM = apiKey && !$("nollm").checked;
@@ -340,6 +351,7 @@ $("form").addEventListener("submit", (ev) => {
     full: $("full").checked,
     noLLM: $("nollm").checked,
     apiKey, model,
+    reasoningEffort: $("reff").value,
   }});
 });
 

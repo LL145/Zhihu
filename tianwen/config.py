@@ -1,9 +1,12 @@
 """配置加载：config.json（工作目录或仓库根）与环境变量，环境变量优先。
 
 需要的配置（OpenRouter）：
-    api_key   OPENROUTER_API_KEY
-    model     OPENROUTER_MODEL（默认 anthropic/claude-sonnet-4.5）
-    base_url  OPENROUTER_BASE_URL（默认 https://openrouter.ai/api/v1）
+    api_key           OPENROUTER_API_KEY
+    model             OPENROUTER_MODEL（默认 anthropic/claude-sonnet-4.5）
+    base_url          OPENROUTER_BASE_URL（默认 https://openrouter.ai/api/v1）
+    reasoning_effort  OPENROUTER_REASONING_EFFORT（思考力度：low/medium/high/
+                      none，默认 low——深思模型不加限常思考数分钟致超时；
+                      置空串则不向接口发送该字段）
 """
 
 import json
@@ -13,11 +16,13 @@ from pathlib import Path
 
 DEFAULT_MODEL = "anthropic/claude-sonnet-5"  # OpenRouter 模型 ID，config.json 可覆盖
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_REASONING_EFFORT = "low"   # low/medium/high/none；空串不发送该字段
 
 TEMPLATE = {
     "api_key": "在这里填入你的 OpenRouter API Key（形如 sk-or-v1-...）",
     "model": DEFAULT_MODEL,
     "base_url": DEFAULT_BASE_URL,
+    "reasoning_effort": DEFAULT_REASONING_EFFORT,
 }
 
 
@@ -52,7 +57,8 @@ def _is_placeholder(key: str) -> bool:
 
 
 def load() -> dict:
-    cfg = {"api_key": "", "model": DEFAULT_MODEL, "base_url": DEFAULT_BASE_URL}
+    cfg = {"api_key": "", "model": DEFAULT_MODEL, "base_url": DEFAULT_BASE_URL,
+           "reasoning_effort": DEFAULT_REASONING_EFFORT}
     for candidate in _candidates():
         if candidate.exists():
             cfg.update(json.loads(candidate.read_text("utf-8")))
@@ -63,6 +69,8 @@ def load() -> dict:
         cfg["model"] = os.environ["OPENROUTER_MODEL"]
     if os.environ.get("OPENROUTER_BASE_URL"):
         cfg["base_url"] = os.environ["OPENROUTER_BASE_URL"]
+    if os.environ.get("OPENROUTER_REASONING_EFFORT") is not None:
+        cfg["reasoning_effort"] = os.environ["OPENROUTER_REASONING_EFFORT"]
     if _is_placeholder(cfg["api_key"]):
         cfg["api_key"] = ""
     return cfg

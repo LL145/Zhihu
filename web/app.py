@@ -52,7 +52,10 @@ def run(payload):
             "model": (p.get("model") or "").strip() or WEB_DEFAULT_MODEL,
             # baseUrl 不入界面：端到端测试与自代理之留口
             "base_url": (p.get("baseUrl") or "").strip()
-                        or twconfig.DEFAULT_BASE_URL}
+                        or twconfig.DEFAULT_BASE_URL,
+            # 思考力度（防深思模型超时）；页面下拉四值 low/medium/high/none
+            "reasoning_effort": (p.get("reasoningEffort") or "").strip()
+                                or twconfig.DEFAULT_REASONING_EFFORT}
     use_llm = bool(_cfg["api_key"]) and not p.get("noLLM")
     full = bool(p.get("full"))
     try:

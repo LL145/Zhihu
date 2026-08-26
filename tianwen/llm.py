@@ -16,6 +16,7 @@ from collections import namedtuple
 
 import requests
 
+from .config import DEFAULT_REASONING_EFFORT
 from .validator import validate, validate_followup
 
 #: 语境块：title 如「姓名卦（论问者之位）」；notes 为说明行；
@@ -164,6 +165,19 @@ def _parse_json(text):
     return json.loads(s[start:end + 1])
 
 
+def _reasoning(cfg):
+    """OpenRouter 统一 reasoning 参数：qwen/glm 等深思模型不加限常思考
+    数分钟致超时，缺省 effort=low 收紧思考预算；none 关闭思考（纯思考
+    模型忽略之），空串则不发送该字段（兼容不识它的 OpenAI 兼容端点）；
+    非思考模型忽略此参数。"""
+    v = cfg.get("reasoning_effort", DEFAULT_REASONING_EFFORT)
+    if v in ("low", "medium", "high"):
+        return {"reasoning": {"effort": v}}
+    if v == "none":
+        return {"reasoning": {"enabled": False}}
+    return {}
+
+
 def _request(cfg, messages, timeout, temperature=0.4):
     resp = requests.post(
         f"{cfg['base_url'].rstrip('/')}/chat/completions",
@@ -173,7 +187,7 @@ def _request(cfg, messages, timeout, temperature=0.4):
             "X-Title": "Tianwen",
         },
         json={"model": cfg["model"], "messages": messages,
-              "temperature": temperature},
+              "temperature": temperature, **_reasoning(cfg)},
         timeout=timeout,
     )
     if resp.status_code != 200:

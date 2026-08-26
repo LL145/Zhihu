@@ -127,6 +127,25 @@ def test_system_prompt_style_rules():
     assert "不得许诺具体数额、时限或必然结果" in zllm._SYSTEM
 
 
+def test_reasoning_effort_in_request(monkeypatch):
+    # 深思模型限思考：缺省 effort=low；none 关思考；空串不发送该字段
+    seen = {}
+
+    def fake_post(*a, **k):
+        seen["body"] = k["json"]
+        return _Resp("忽略")
+
+    monkeypatch.setattr(llm.requests, "post", fake_post)
+    llm._request(CFG, [], 10)
+    assert seen["body"]["reasoning"] == {"effort": "low"}
+    llm._request({**CFG, "reasoning_effort": "high"}, [], 10)
+    assert seen["body"]["reasoning"] == {"effort": "high"}
+    llm._request({**CFG, "reasoning_effort": "none"}, [], 10)
+    assert seen["body"]["reasoning"] == {"enabled": False}
+    llm._request({**CFG, "reasoning_effort": ""}, [], 10)
+    assert "reasoning" not in seen["body"]
+
+
 def test_classify_topic(monkeypatch):
     # 占者判类：温度 0、键须在类别表内、任何异常回落 None
     seen = {}

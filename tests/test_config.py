@@ -10,7 +10,8 @@ def _isolate(monkeypatch, tmp_path, files=()):
     paths = [tmp_path / name for name in (files or ("config.json",))]
     monkeypatch.setattr(config, "_candidates", lambda: iter(paths))
     monkeypatch.setattr(config, "default_path", lambda: tmp_path / "config.json")
-    for var in ("OPENROUTER_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_BASE_URL"):
+    for var in ("OPENROUTER_API_KEY", "OPENROUTER_MODEL",
+                "OPENROUTER_BASE_URL", "OPENROUTER_REASONING_EFFORT"):
         monkeypatch.delenv(var, raising=False)
 
 
@@ -20,6 +21,18 @@ def test_defaults_when_no_file(monkeypatch, tmp_path):
     assert cfg["api_key"] == ""
     assert cfg["model"] == config.DEFAULT_MODEL
     assert cfg["base_url"] == config.DEFAULT_BASE_URL
+    assert cfg["reasoning_effort"] == config.DEFAULT_REASONING_EFFORT == "low"
+
+
+def test_reasoning_effort_from_file_and_env(monkeypatch, tmp_path):
+    _isolate(monkeypatch, tmp_path)
+    (tmp_path / "config.json").write_text(
+        json.dumps({"api_key": "sk-or-v1-abc", "reasoning_effort": "none"}),
+        "utf-8")
+    assert config.load()["reasoning_effort"] == "none"
+    # 环境变量优先；空串是合法取值（不向接口发送该字段）
+    monkeypatch.setenv("OPENROUTER_REASONING_EFFORT", "")
+    assert config.load()["reasoning_effort"] == ""
 
 
 def test_ensure_file_creates_template(monkeypatch, tmp_path):
@@ -27,7 +40,7 @@ def test_ensure_file_creates_template(monkeypatch, tmp_path):
     path, created = config.ensure_file()
     assert created and path.exists()
     data = json.loads(path.read_text("utf-8"))
-    assert set(data) == {"api_key", "model", "base_url"}
+    assert set(data) == {"api_key", "model", "base_url", "reasoning_effort"}
     # 再次调用不覆盖
     path2, created2 = config.ensure_file()
     assert path2 == path and not created2

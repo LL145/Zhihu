@@ -54,9 +54,13 @@ def test_incomplete_inputs_still_run(app):
 def test_refusal_and_default_model(app):
     d = _run(app, question="我该买哪只股票")
     assert d["kind"] == "refusal"
-    # 模型缺省取网页默认（z-ai/glm-5.3），cfg 在红线前即定
+    # 模型缺省取网页默认（z-ai/glm-5.3），cfg 在红线前即定；
+    # 思考力度缺省 low（防深思模型超时），页面下拉可覆盖
     _run(app)
     assert app._cfg["model"] == app.WEB_DEFAULT_MODEL == "z-ai/glm-5.3"
+    assert app._cfg["reasoning_effort"] == "low"
+    _run(app, reasoningEffort="none")
+    assert app._cfg["reasoning_effort"] == "none"
 
 
 def test_followup_requires_interpret(app):
