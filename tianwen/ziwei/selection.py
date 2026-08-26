@@ -25,6 +25,7 @@
 
 from dataclasses import dataclass, field
 
+from .. import hanzi
 from ..trigrams import ZHI
 from . import patterns
 
@@ -55,7 +56,11 @@ TOPIC_PALACE = {"career": "官禄", "study": "官禄", "love": "妻妾",
 
 
 def detect_aspect(question):
-    """按关键词定所问之宫 → (宫名, 命中词)；未命中 → (None, "")。"""
+    """按关键词定所问之宫 → (宫名, 命中词)；未命中 → (None, "")。
+
+    比对前繁体输入归一为简体（hanzi.t2s）。
+    """
+    question = hanzi.t2s(question)
     for palace, keywords in ASPECTS:
         for kw in keywords:
             if kw in question:

@@ -237,14 +237,18 @@ def variants(body, gua_name):
     """梯度剥前缀，返回 (候选序列, 剥净后的纯汉字串)。
 
     候选顺序：剥到爻名（标准）→ 再剥卦名（卦辞行）→ 保留爻名（用九/用六
-    小象等单元文本自带爻名）→ 原文。剥净为空说明是纯页眉（卦画、「大过：」）。
+    小象等单元文本自带卦名）→ 原文。剥净为空说明是纯页眉（卦画、「大过：」）。
+    带「X下X上」卦头的行必是卦辞行，剥卦名读法前置——卦辞截成数行的
+    页面（如震卦首行止「震：亨。」）若带卦名比对，会前缀误锚同以
+    「卦名＋辞」起的彖传（「震亨…」），整卦经注遂错位。
     """
-    sa = re.sub(rf"^[{_TRIGRAM_CH}]{{1,2}}下[{_TRIGRAM_CH}]{{1,2}}上[。，]?", "", body)
+    sa, n_header = re.subn(
+        rf"^[{_TRIGRAM_CH}]{{1,2}}下[{_TRIGRAM_CH}]{{1,2}}上[。，]?", "", body)
     sa = re.sub(r"^《?(彖|象)》?曰[：:，,]?", "", sa).strip()
     sb = re.sub(rf"^({_YAO_NAMES})曰?[：:，,]?", "", sa).strip()
     sc = re.sub(rf"^{re.escape(gua_name)}[：:，,]?", "", sb).strip()
     out = []
-    for s in (sb, sc, sa, body):
+    for s in ((sc, sb, sa, body) if n_header else (sb, sc, sa, body)):
         if s and s not in out:
             out.append(s)
     return out, normalize(sc)

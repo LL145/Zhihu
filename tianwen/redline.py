@@ -1,5 +1,7 @@
 """红线拦截：医疗、投资、法律、寿夭类问题一律婉拒（宁可错杀）。"""
 
+from . import hanzi
+
 _CATEGORIES = {
     "医疗健康": ["病", "癌", "肿瘤", "医院", "手术", "吃药", "服药", "诊断", "治疗",
                "怀孕", "备孕", "体检"],
@@ -19,7 +21,12 @@ _CRISIS_MESSAGE = (
 
 
 def check(question: str):
-    """返回 None 表示放行；否则返回婉拒文案。"""
+    """返回 None 表示放行；否则返回婉拒文案。
+
+    比对前繁体输入归一为简体（hanzi.t2s）——红线宁可错杀，
+    不容因繁体写法绕过。
+    """
+    question = hanzi.t2s(question)
     for kw in _CRISIS:
         if kw in question:
             return _CRISIS_MESSAGE

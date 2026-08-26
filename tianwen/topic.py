@@ -13,6 +13,8 @@ llm.classify_topic）> 本层关键词规则回落（确定性，离线可用）
 
 from dataclasses import dataclass
 
+from . import hanzi
+
 
 @dataclass(frozen=True)
 class Topic:
@@ -91,7 +93,11 @@ CATALOG = tuple((key, name, note) for key, name, _h, _k, note in _RULES) \
 
 
 def classify(question: str) -> Topic:
-    """按规则顺序取第一个命中的类别；未命中归「其他」。确定性，无 LLM。"""
+    """按规则顺序取第一个命中的类别；未命中归「其他」。确定性，无 LLM。
+
+    比对前繁体输入归一为简体（hanzi.t2s，仅覆盖关键词所涉字）。
+    """
+    question = hanzi.t2s(question)
     for key, name, hint, keywords, note in _RULES:
         for kw in keywords:
             if kw in question:

@@ -50,6 +50,16 @@ def test_kb_xiaoxiang_fix_regression():
     assert "见龙在田" in kb.citation("zhouyi:1:yao:2")["text"]
 
 
+def test_zhen_alignment_regression():
+    # 震卦对齐订正：卦辞截为三行、首行「震：亨。」曾前缀误锚彖传，
+    # 致彖传经文并入卦辞注、彖注错挂（SUSPECTS 曾列唯一待修项）
+    guaci = kb.citation("wangbi:51:guaci")["text"]
+    tuan = kb.citation("wangbi:51:tuan")["text"]
+    assert guaci.startswith("惧以成，则是以亨。")   # 底本注于卦辞行
+    assert "《彖》曰" not in guaci                   # 彖传经文不混入注
+    assert "威灵惊乎百里" in tuan and "堪长子之义" in tuan
+
+
 def test_commentary_in_allowed_texts():
     cast = casting.cast_meihua(datetime(2026, 8, 24, 15, 30))  # 革 动爻5
     ben, zhi = kb.id_of(cast.ben_binary), kb.id_of(cast.zhi_binary)
