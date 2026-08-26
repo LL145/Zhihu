@@ -115,7 +115,24 @@ WENDA = {
 FIXES = [
     ("兄弟感情融洽，但兄弟不多。", "", "删维基文库贡献者所加现代白话注"),
     ("羊玲克害", "羊铃克害", "误字：玲→铃"),
+    # 2026-08 机扫裁定订正（缘由详 data/PROOFREADING.md 与 data/SUSPECTS.md）
+    ("见美陀火铃空劫", "见羊陀火铃空劫",
+     "美→羊（邻行左辅「见羊陀火铃」＋全库固定四煞搭配）"),
+    ("羊陀火玲空劫", "羊陀火铃空劫", "玲→铃（与羊玲同类音近误字）"),
+    ("巨门入庙二入", "巨门入庙二人", "入→人（子女宫「几人」计数体例）"),
+    ("诸星凶，逢凶也凶", "诸星凶，逢吉也凶",
+     "凶→吉（与上句「诸星吉，逢凶也吉」对举；彀率「诸星恶多逢吉也凶」互证）"),
+    ("魁铒三合拱照", "魁钺三合拱照", "铒→钺（形近）"),
+    ("乃南方第四星也", "乃南斗第四星也",
+     "方→斗（问答论「南斗/北斗第N星」体例；同条「南斗益算」自证）"),
+    ("陷宫破不祖聚", "陷宫破祖不聚",
+     "语序倒置（同表擎羊「陷地破祖不聚」互证）"),
+    ("命实运坚稿田得雨", "命实运坚槁田得雨", "稿→槁（枯槁之田）"),
+    ("更兼化吉祸尤兴", "更兼化吉福尤兴", "祸→福（承「化吉」＋得地富贵论篇旨）"),
+    ("空劫家忌", "空劫耗忌", "家→耗（同段财帛宫三处「空劫耗忌」互证）"),
 ]
+
+_FIX_HITS = set()   # clean() 逐页应用后在 main 断言无一落空
 
 BRANCHES = "子丑寅卯辰巳午未申酉戌亥"
 
@@ -174,6 +191,7 @@ def clean(text):
         w = _cc.convert(wrong)
         if w in text:
             text = text.replace(w, right)
+            _FIX_HITS.add(wrong)
     return text
 
 
@@ -272,8 +290,10 @@ def parse_gong(body, palace, pkey, records, warnings):
     - 节首非星名行为本宫总论（如子女宫「凡看子女先看本宫星宿…」）；
     - 主星须依《安南北斗诸星诀》序出现，序退视为折行并入前行；
     - 辅星各宫次序不一（如子女宫辅弼在昌曲之前），不限序，凡未出即为新条；
-    - 行首「X同…」通常是折行（如妻妾宫太阳行折出「太阴同内助…」），
+    - 行首「X同…」「X会…」通常是折行（如妻妾宫太阳行折出「太阴同内助…」），
       仅当 X 恰为下一个未出主星时作新条（如迁移宫「紫微同左右…」）；
+      此折行判定仅施于主星——辅星行首「X会吉…」即为新条（如官禄宫
+      「禄存会吉文武皆良」，勿并入前行）；
     - 官禄宫末「定公卿」等题名断诀各自成条。
     """
     text = re.sub(r"</?poem>", "", body)
@@ -293,7 +313,7 @@ def parse_gong(body, palace, pkey, records, warnings):
         new = False
         if hit:
             tok, stars, rank = hit
-            if line[len(tok):][:1] in ("同", "会"):
+            if line[len(tok):][:1] in ("同", "会") and rank < 14:
                 nxt = next((s for s in MAIN14 if s not in seen), None)
                 new = tok == nxt
             elif tok in seen:
@@ -464,6 +484,8 @@ def main():
         d = fetch_page(title, args.cache_dir)
         pages[d["title"]] = d["oldid"]
         texts[title[-2:]] = clean(d["text"])
+    missing = [w for w, _, _ in FIXES if w not in _FIX_HITS]
+    assert not missing, f"订正落空（源已改？）: {missing}"
 
     records, warnings = {}, []
 

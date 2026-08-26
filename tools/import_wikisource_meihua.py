@@ -221,6 +221,42 @@ def split_wanwu(body):
     return units
 
 
+# 2026-08 机扫裁定订正（断言恰一处后替换；缘由详 data/PROOFREADING.md
+# 与 data/SUSPECTS.md）。「逐/遂」为坊本系统性形近误植：句首连词处
+# 均当作「遂」（同卷「园丁不知而逐之」「随波逐流」本义用法正确反证）；
+# 「以逐成卦之数」一处文义两可，存疑不改。标点为维基贡献者所加，
+# 明显失当者（艮卦列举句号割裂）径正。
+FIXES = [
+    ("女子失惊坠地，逐伤其股", "女子失惊坠地，遂伤其股", "逐→遂（连词）"),
+    ("可占矣。」逐占之", "可占矣。」遂占之", "逐→遂"),
+    ("互见重乾。逐与客曰", "互见重乾。遂与客曰", "逐→遂"),
+    ("逐将此六字占之", "遂将此六字占之", "逐→遂"),
+    ("互见震、兑。逐为客曰", "互见震、兑。遂为客曰", "逐→遂"),
+    ("询之果然，逐谓寺僧曰", "询之果然，遂谓寺僧曰", "逐→遂"),
+    ("其应速。逐以成卦之数", "其应速。遂以成卦之数", "逐→遂"),
+    ("问有何喜，曰无。逐占之", "问有何喜，曰无。遂占之", "逐→遂"),
+    ("谓老人虫", "谓老人曰",
+     "虫→曰（「谓Ｘ曰：「…」」固定句式，同卷西林寺占例互证）"),
+    ("得风火家人卦（南方属离火，合得风火家人卦）", "得风火家人卦",
+     "删逐字复述前文之衍括注（同页其余括注均补新义，唯此复述）"),
+    ("爪、鼻。黄色。", "爪、鼻、黄色。",
+     "艮卦万物属类列举被句号割裂（两处艮条「黄色」皆列举项互证；"
+     "标点为维基贡献者所加）"),
+]
+
+
+def apply_fixes(units):
+    hits = {w: 0 for w, _, _ in FIXES}
+    for u in units:
+        for w, r, _ in FIXES:
+            n = u["text"].count(w)
+            if n:
+                hits[w] += n
+                u["text"] = u["text"].replace(w, r)
+    for w, _, _ in FIXES:
+        assert hits[w] == 1, f"订正落空或多处命中: {w} ×{hits[w]}"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache-dir", help="页面缓存目录（重跑免重新抓取）")
@@ -260,6 +296,8 @@ def main():
             warnings.append(f"{sec_name} 正文未见体/用字样，请人工核对")
         units.append({"id": uid, "title": disp, "text": body})
 
+    apply_fixes(units)
+
     out = {
         "meta": {
             "work": "《梅花易数》卷一（起卦诸法与占例）·卷二（体用总诀与十八占）",
@@ -272,7 +310,8 @@ def main():
             "conversion": "繁→简 OpenCC t2s",
             "notes": "卷一「八卦万物属类」大章按八卦切为八单元"
                      "（1:xiang:wanwu:*）；单元 id 首段为卷次",
-            "imported": "2026-08-25",
+            "fixes": [f"{w}→{r or '（删）'}：{note}" for w, r, note in FIXES],
+            "imported": "2026-08-26",
             "proofread": False,
             "warnings": warnings,
         },

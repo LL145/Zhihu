@@ -82,6 +82,46 @@ def fetch_page(title, cache_dir=None):
     return oldid, text
 
 
+# 2026-08 机扫裁定订正（断言恰一处后替换；缘由详 data/PROOFREADING.md
+# 与 data/SUSPECTS.md）。作用于转换后的最终文本。
+FIXES = [
+    ("为甲胃，为戈兵", "为甲胄，为戈兵",
+     "形近误字：胃→胄（梅花库三处引离卦取象均作「甲胄」互证）"),
+    ("盖取诸周易/夬", "盖取诸夬",
+     "原页无管道符内链[[周易/夬]]之页面路径残留（管线缺陷）"),
+    ("覆公𫗧，其形渥", "覆公餗，其形渥",
+     "OpenCC 把「餗」简作扩展区罕字𫗧，回正与经文库一致（管线）"),
+    ("立地之道曰「柔与刚", "立地之道曰柔与刚",
+     "孤立开引号：三段排比唯此段带半个引号（原页衍）"),
+    ("故受之以夬； 夬者决也", "故受之以夬；夬者决也",
+     "衍半角空格（全页唯一）"),
+]
+
+
+def apply_fixes(out):
+    """对写出结构（meta 除外）逐字段应用 FIXES；每条须恰命中一处。"""
+    hits = {w: 0 for w, _, _ in FIXES}
+
+    def walk(x):
+        if isinstance(x, str):
+            for w, r, _ in FIXES:
+                n = x.count(w)
+                if n:
+                    hits[w] += n
+                    x = x.replace(w, r)
+            return x
+        if isinstance(x, list):
+            return [walk(v) for v in x]
+        if isinstance(x, dict):
+            return {k: (v if k == "meta" else walk(v)) for k, v in x.items()}
+        return x
+
+    out = walk(out)
+    for w, _, _ in FIXES:
+        assert hits[w] == 1, f"订正落空或多处命中: {w} ×{hits[w]}"
+    return out
+
+
 def clean_wiki(s):
     """去语言转换标记 / 链接 / 注释 / 残余模板。"""
     s = re.sub(r"<!--.*?-->", "", s, flags=re.S)
@@ -463,7 +503,8 @@ def main():
                         "之显异文：蒙杂而著/蒙稚而著、随无故也/随无事也、"
                         "亲寡旅也/旅寡亲也、小人道消也/小人道忧也"
                         "（通行注疏本作「小人道忧也」）",
-            "imported": "2026-08-25",
+            "fixes": [f"{w}→{r}：{note}" for w, r, note in FIXES],
+            "imported": "2026-08-26",
             "proofread": False,
             "warnings": warnings,
         },
@@ -476,6 +517,7 @@ def main():
                   {"id": "xia", "text": xugua["xia"]}],
         "zagua": [{"id": "1", "text": zagua}],
     }
+    out = apply_fixes(out)
     Path(args.out).write_text(
         json.dumps(out, ensure_ascii=False, indent=1), "utf-8")
     print(f"说卦 {len(shuogua)} 单元；文言 {len(wenyan)} 单元；"

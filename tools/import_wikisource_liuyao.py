@@ -92,6 +92,8 @@ def clean(text, star_notes):
     text = re.sub(r"</?(?:poem|pre)[^>]*>", "", text)   # 标签去、文字留
     text = re.sub(r"-\{(.*?)\}-", r"\1", text)          # 转换保护标记
     text = re.sub(r"^\{\|.*?^\|\}", "", text, flags=re.S | re.M)
+    # 页面分类标签非正文（如黄金策末 [[分類:術數]]），先于内链剥离去除
+    text = re.sub(r"\[\[\s*(?:Category|分類|分类)\s*:[^]]*\]\]", "", text)
 
     def _tpl(m):
         inner = m.group(1)
@@ -99,6 +101,8 @@ def clean(text, star_notes):
             return inner[2:] if star_notes == "inline" else ""
         if inner.startswith("YL|"):
             return inner.split("|")[1]
+        if inner.startswith("另|"):
+            return inner.split("|")[1]   # 异文模板{{另|正文|一作}}取正文用字
         return ""
 
     prev = None
@@ -125,6 +129,74 @@ def _prose(body):
     lines = [re.sub(r"\s+", " ", l.strip(": ").strip())
              for l in body.splitlines()]
     return "\n".join(l for l in lines if l)
+
+
+# 2026-08 机扫裁定订正（断言恰一处后替换/删除；缘由详
+# data/PROOFREADING.md 与 data/SUSPECTS.md）。作用于成形单元文本。
+FIXES = {
+    "京氏易传": [
+        ("家人嗃嗃，父子嘻嘻", "家人嗃嗃，妇子嘻嘻",
+         "引家人九三爻辞误字（近文「父父子子」串写）"),
+        ("休复，元吉", "休复，吉",
+         "引复六二爻辞衍「元」（邻行初九引文「元吉」串入）"),
+        ("建起六四癸巳至戊戌", "建起癸巳至戊戌",
+         "邻句「退位入六四」串入（六十四条建候体例皆无爻位）"),
+        ("解者，散也", "解者，缓也",
+         "引序卦传误字（近文「聚散以时」串写）"),
+        ("六象，六包\n，四象分万物", "六象，六包，四象分万物",
+         "按语剥离后拼回被其打断之句（管线）"),
+        ("\n（五星从位起镇星，心宿从位降辛卯。）", "",
+         "删今人（虎易）据体例推补句（原页自注非京氏原文）"),
+    ],
+    "火珠林": [
+        ("戚磋若", "戚嗟若", "引离六五爻辞误字：磋→嗟"),
+        ("封有三墓：宫基、鬼墓", "卦有三墓：宫墓、鬼墓",
+         "封→卦、基→墓（同单元下文自证；首句漏列财墓待底本，不补）"),
+        ("如中孚封，世持辛未", "如中孚卦，世持辛未", "封→卦"),
+        ("寺观宙宇", "寺观庙宇", "宙→庙（同库两处「寺观庙宇」互证）"),
+        ("来意俱不上封", "来意俱不上卦", "封→卦"),
+        ("若乘土艾", "若乘土爻", "艾→爻（同单元「若不乘土爻」自证）"),
+        ("世持辛末官墓", "世持辛未官墓", "末→未（干支）"),
+        ("忌动爻应艾墓克之", "忌动爻应爻墓克之", "艾→爻"),
+        ("皆被旁艾所隔", "皆被旁爻所隔", "艾→爻"),
+        ("若财艾值断", "若财爻值断", "艾→爻"),
+        ("第五爻申亲艾动", "第五爻申亲爻动", "艾→爻"),
+        ("辰丑动雨、末戌动晴", "辰丑动雨、未戌动晴",
+         "末→未（同单元三处「未戌动晴」自证）"),
+        ("曰：—二三世", "曰：一二三世",
+         "破折号当「一」（问句「一二三世易寻」自证）"),
+        ("子托独发", "子孙独发", "托→孙（同单元「子孙独发」自证）"),
+        ("父母、城池、壕寨、雄旗", "父母为城池、壕寨、雄旗",
+         "补「为」（同句四项「X为Y」体例）"),
+        ("逢坤则静．遇兑则说", "逢坤则静，遇兑则说", "全角句点归一作逗号"),
+    ],
+    "黄金策": [
+        ("静须榖 ；生扶合世", "静须榖秕；生扶合世",
+         "脱「秕」（《古今图书集成·艺术典》引同句「穀秕」互证）"),
+        ("须防人春刑伤", "须防人眷刑伤", "春→眷（形近）"),
+        ("子有跨褴之风", "子有跨灶之风", "褴→灶（跨灶成语）"),
+        ("青龙父母，代居居船", "青龙父母，祖代居船",
+         "脱「祖」衍「居」（《古今图书集成·艺术典》引同句互证）"),
+        ("\n（右喜看弧帨说；）此段疑原文脱漏。", "", "删今人校勘按语行"),
+        ("\n（此乃黄金策全篇结语）", "", "删页面编者说明"),
+    ],
+}
+
+
+def apply_fixes(units, book, meta):
+    fixes = FIXES.get(book, [])
+    hits = {w: 0 for w, _, _ in fixes}
+    for u in units:
+        for w, r, _ in fixes:
+            n = u["text"].count(w)
+            if n:
+                hits[w] += n
+                u["text"] = u["text"].replace(w, r)
+    for w, _, _ in fixes:
+        assert hits[w] == 1, f"{book} 订正落空或多处命中: {w} ×{hits[w]}"
+    if fixes:
+        meta.setdefault("fixes", []).extend(
+            f"{w}→{r or '（删）'}：{note}" for w, r, note in fixes)
 
 
 def check_units(units, warnings, book):
@@ -192,6 +264,7 @@ def import_jingfang(cache_dir, hex_names):
         "卦单元 id 为周易通行卦序，逐条以卦符 ䷀–䷿ 码位核验；"
         "「卷下·算法」「卷下·总结」小标题为页面所加",
         warnings)
+    apply_fixes(units, "京氏易传", meta)
     return {"meta": meta, "units": units}
 
 
@@ -211,6 +284,7 @@ def import_huozhulin(cache_dir):
         "繁→简 OpenCC t2s，乾字保护，遯作遁；{{*|…}}为原书注文"
         "（「注云…」体），并入正文；「附」节序号剥离",
         warnings)
+    apply_fixes(units, "火珠林", meta)
     return {"meta": meta, "units": units}
 
 
@@ -241,6 +315,7 @@ def import_huangjince(cache_dir):
         warnings)
     meta["fixes"] = ["删总断千金赋节内今人「注釋:」应期白话块",
                      "删词讼章今人「註記:」按语行"]
+    apply_fixes(units, "黄金策", meta)
     return {"meta": meta, "units": units}
 
 

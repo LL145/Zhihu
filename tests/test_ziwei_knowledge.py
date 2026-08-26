@@ -28,7 +28,7 @@ def test_meta(raw):
     assert set(m["pages"]) == {"紫微斗數全書/卷一", "紫微斗數全書/卷二",
                                "紫微斗數全書/卷三"}
     assert all(isinstance(v, int) for v in m["pages"].values())
-    assert len(m["fixes"]) == 2
+    assert len(m["fixes"]) == 12    # 2 首批 + 10（2026-08 机扫裁定）
     assert m["warnings"]        # 校对队列非空（缺文与疑似今语）
 
 
@@ -63,6 +63,12 @@ def test_fixes_applied(raw):
     assert "兄弟感情融洽" not in blob    # 贡献者白话已删
     assert "羊玲" not in blob            # 误字已订正
     assert "羊铃克害" in blob
+    # 2026-08 机扫裁定订正抽验
+    assert "美陀" not in blob and "魁铒" not in blob
+    assert "见羊陀火铃空劫亦有黜降" in blob
+    # 官禄宫禄存断语已自右弼析出（parse_gong 折行判定限主星）
+    assert "禄存会吉文武皆良" in json.dumps(
+        raw["records"]["ziwei:2:gong:guanlu:lucun"], ensure_ascii=False)
 
 
 def test_no_markup_residue(raw):

@@ -112,6 +112,32 @@ def list_hexagram_pages(cache_dir=None):
         cont = {"apcontinue": d["continue"]["apcontinue"]}
 
 
+# 2026-08 机扫裁定订正（断言恰一处后替换；缘由详 data/PROOFREADING.md
+# 与 data/SUSPECTS.md）。作用于转换后的注文文本。
+FIXES = [
+    ("白守而不能给上", "自守而不能给上",
+     "形近误字：白→自（同库「自守」四见）"),
+    ("故」利幽人之贞「也", "故「利幽人之贞」也", "引号开合颠倒（全库唯一）"),
+    ("「刲血」而「无血」", "「刲羊」而「无血」",
+     "涉下而误：爻辞「士刲羊」，前句注亦作「刲羊」"),
+    ("夷于左股」，是行不能壮也", "「夷于左股」，是行不能壮也",
+     "原页左引号在注模板之外，按模板取值时丢失，补回配对（管线）"),
+]
+
+
+def apply_fixes(all_notes):
+    hits = {w: 0 for w, _, _ in FIXES}
+    for cid, txt in all_notes.items():
+        for w, r, _ in FIXES:
+            n = txt.count(w)
+            if n:
+                hits[w] += n
+                txt = txt.replace(w, r)
+        all_notes[cid] = txt
+    for w, _, _ in FIXES:
+        assert hits[w] == 1, f"订正落空或多处命中: {w} ×{hits[w]}"
+
+
 def clean_wiki(s):
     """去链接 / 语言转换标记 / 残余模板 / 注释。"""
     s = re.sub(r"<!--.*?-->", "", s, flags=re.S)
@@ -476,6 +502,7 @@ def main():
 
     for cid in all_notes:
         assert kb.has(cid), f"注文挂在未知 cite_id: {cid}"
+    apply_fixes(all_notes)
 
     out = {
         "meta": {
@@ -486,7 +513,8 @@ def main():
             "license": LICENSE,
             "license_url": LICENSE_URL,
             "conversion": "繁→简 OpenCC t2s",
-            "imported": "2026-08-24",
+            "fixes": [f"{w}→{r}：{note}" for w, r, note in FIXES],
+            "imported": "2026-08-26",
             "proofread": False,
             "warnings": warnings,
         },
