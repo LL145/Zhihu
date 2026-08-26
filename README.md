@@ -49,8 +49,10 @@ Key（模型下拉二选：`z-ai/glm-5.3`、`qwen/qwen3.8-max`；思考力度恒
 （localStorage），不入仓库，请求由浏览器直达 OpenRouter，不经任何
 第三方服务器。首次打开需加载十余 MB 的 Python 运行时（来自
 cdn.jsdelivr.net）；此后由 Service Worker 缓存，二次打开快、断网
-也能起占（大模型解读除外）。每次占问自动存入本机占问记录
-（localStorage，至多 20 条，含追问全文，可一键清除），结果可一键复制。
+也能起占（大模型解读除外）。结果上方附**卦象图**（本卦→之卦，动爻
+标示）与**紫微十二宫盘图**（命宫框示、庙陷、四化、空亡皆标注）；每次
+占问自动存入本机占问记录（localStorage，至多 20 条，含追问全文，可
+一键清除），结果可一键复制。
 
 > 一次性设置：仓库 **Settings → Pages → Build and deployment →
 > Source** 选 "**GitHub Actions**"（Actions 令牌无权代建 Pages 站点，

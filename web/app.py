@@ -36,6 +36,51 @@ def _when(p):
     return datetime.strptime(w[:16], "%Y-%m-%dT%H:%M")
 
 
+def _gua_viz(s, cast, label):
+    """单卦之图形数据：本卦→之卦六爻（自下而上 0/1）与动爻位。"""
+    kb = s.kb
+    ben, zhi = kb.id_of(cast.ben_binary), kb.id_of(cast.zhi_binary)
+    return {"label": label,
+            "ben": {"name": kb.full_name(ben), "lines": list(cast.ben_binary)},
+            "zhi": {"name": kb.full_name(zhi), "lines": list(cast.zhi_binary)},
+            "moving": cast.moving[0]}
+
+
+def _viz(s):
+    """结构化盘卦数据（纯呈现层）：网页据以画卦象图与十二宫盘图。
+
+    只含盘面事实，不含断语与结论——图是文本输出的插图，不是第二来源。"""
+    casts = []
+    if s.primary == "event" and s.event_cast is not s.time_cast:
+        casts.append(_gua_viz(s, s.event_cast, "问语卦（主断）"))
+        casts.append(_gua_viz(s, s.time_cast, "时间卦（参·当下之势）"))
+    elif s.primary == "event":
+        casts.append(_gua_viz(s, s.time_cast, "时间卦（主断·问语无字回落）"))
+    else:
+        casts.append(_gua_viz(s, s.time_cast, "时间卦（参·当下之势）"))
+    if s.name_cast is not None:
+        casts.append(_gua_viz(s, s.name_cast,
+                              f"姓名卦「{s.name}」（参·论问者之位）"))
+    v = {"casts": casts}
+    if s.chart is not None:
+        ch = s.chart
+        v["chart"] = {
+            "tag": "主断" if s.primary == "chart" else "语境·论禀赋",
+            "ming": ch.ming_branch, "shen": ch.shen_branch,
+            "yinyang": ch.yinyang, "ju": ch.wuxing_ju,
+            "daxian_dir": "顺" if ch.daxian_forward else "逆",
+            "lunar": ch.lunar.description, "solar": ch.solar_desc,
+            "palaces": [
+                {"name": p.name, "branch": p.branch, "gz": p.gz,
+                 "body": p.is_body, "daxian": list(p.daxian),
+                 "kong": ch.kong_marks(p.branch),
+                 "stars": [{"n": st.name, "k": st.kind, "b": st.brightness,
+                            "h": st.sihua} for st in p.stars]}
+                for p in ch.palaces],
+        }
+    return v
+
+
 def _degraded(s, e, full):
     lines = [f"〔解读不可用〕{e}"]
     lines += [f"  - {err}" for err in e.errors]
@@ -75,15 +120,16 @@ def run(payload):
         text = s.render_all(full=full)
         if not p.get("noLLM"):
             text = "（未填 API Key：结论直取定例断辞，无大模型解读。）\n\n" + text
-        return json.dumps({"kind": "plain", "text": text})
+        return json.dumps({"kind": "plain", "text": text, "viz": _viz(s)})
     try:
         text, _attempts = s.interpret(_cfg, full=full)
     except InterpreterError as e:
-        return json.dumps({"kind": "plain", "text": _degraded(s, e, full)})
+        return json.dumps({"kind": "plain", "text": _degraded(s, e, full),
+                           "viz": _viz(s)})
     except Exception:
         return json.dumps({"kind": "error", "text": traceback.format_exc()})
     _session = s
-    return json.dumps({"kind": "llm", "text": text})
+    return json.dumps({"kind": "llm", "text": text, "viz": _viz(s)})
 
 
 def followup(ask):

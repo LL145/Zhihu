@@ -57,6 +57,40 @@
     background: var(--panel); border: 1px solid var(--line);
     border-radius: 6px; padding: 1rem 1.1rem; font-size: .95rem;
   }
+  /* ── 卦象图与十二宫盘图（纯呈现：文本输出之插图） ── */
+  #viz { display: none; margin: 1rem 0; }
+  .vizcard { background: var(--panel); border: 1px solid var(--line);
+             border-radius: 6px; padding: .8rem 1rem; margin-bottom: .8rem; }
+  .viztitle { color: var(--dim); font-size: .85rem; margin: 0 0 .5rem; }
+  .guarow { display: flex; gap: 1.4rem 2rem; flex-wrap: wrap; }
+  .guacast { display: flex; gap: .7rem; align-items: center; }
+  .gua { text-align: center; }
+  .gua svg rect { fill: var(--ink); }
+  .gua svg rect.mv { fill: var(--accent); }
+  .gua svg text.mvtag { fill: var(--accent); font-size: 12px; }
+  .guaname { font-size: .82rem; margin-top: .15rem; }
+  .gualabel { flex-basis: 100%; color: var(--dim); font-size: .82rem;
+              margin: 0 0 -.6rem; }
+  .guaarrow { color: var(--dim); font-size: 1.1rem; }
+  .zwgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .pal { border: 1px solid var(--line); border-radius: 4px;
+         padding: .3rem .4rem; min-height: 5.6rem; font-size: .78rem;
+         line-height: 1.5; background: var(--bg); }
+  .pal.ming { border-color: var(--accent);
+              box-shadow: inset 0 0 0 1px var(--accent); }
+  .zwcenter { grid-area: 2 / 2 / 4 / 4; display: flex; flex-direction: column;
+              justify-content: center; text-align: center;
+              color: var(--dim); font-size: .82rem; line-height: 1.7; }
+  .st { display: inline-block; margin-right: .3em; }
+  .st.major { font-weight: 700; }
+  .st.malefic { color: var(--accent); }
+  .st.misc { color: var(--dim); }
+  .sb { font-size: .68em; vertical-align: super; color: var(--dim); }
+  .sh { color: var(--accent-ink); background: var(--accent);
+        border-radius: 3px; padding: 0 .22em; font-size: .68em;
+        margin-left: 1px; }
+  .pmeta { color: var(--dim); margin-top: .1rem; }
+  .kong { color: var(--accent); }
   #outbar { display: none; margin-top: .5rem; }
   #followup { display: none; margin-top: 1rem; }
   #followup .row { align-items: end; }
@@ -135,6 +169,7 @@
     <p id="status">正在启动…</p>
   </form>
 
+  <div id="viz"></div>
   <pre id="out"></pre>
   <div id="outbar">
     <button type="button" class="minor" id="copyout">复制结果</button>
@@ -242,6 +277,7 @@ function renderHist() {
       const out = $("out");
       out.style.display = "block";
       out.textContent = r.text;
+      $("viz").style.display = "none";        // 记录只存文本，不存图
       $("outbar").style.display = "block";
       $("followup").style.display = "none";   // 旧会话不可续问，须重起占
       curRec = null;
@@ -285,6 +321,91 @@ $("copyout").addEventListener("click", async () => {
   }
 });
 
+// ── 卦象图与十二宫盘图（据 viz 数据绘制；纯呈现，不出第二结论） ──
+const esc = (s) => String(s).replace(/[&<>"]/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function guaSVG(g, moving) {
+  // 六爻自下而上（lines[0] 为初爻）；阳爻一横、阴爻两段；动爻着色注「动」
+  const W = 96, LH = 10, GAP = 8, PAD = 4;
+  let parts = "";
+  for (let i = 0; i < 6; i++) {
+    const pos = 6 - i;                       // 自上而下画：上爻先
+    const y = PAD + i * (LH + GAP);
+    const mv = moving === pos ? ' class="mv"' : "";
+    if (g.lines[pos - 1] === 1) {
+      parts += `<rect x="0" y="${y}" width="${W}" height="${LH}"${mv}/>`;
+    } else {
+      const seg = Math.round(W * 0.42);
+      parts += `<rect x="0" y="${y}" width="${seg}" height="${LH}"${mv}/>`
+             + `<rect x="${W - seg}" y="${y}" width="${seg}" height="${LH}"${mv}/>`;
+    }
+    if (moving === pos) {
+      parts += `<text x="${W + 6}" y="${y + LH}" class="mvtag">动</text>`;
+    }
+  }
+  const H = PAD * 2 + 6 * LH + 5 * GAP;
+  return `<svg width="${W + 26}" height="${H}" viewBox="0 0 ${W + 26} ${H}"`
+       + ` role="img" aria-label="${esc(g.name)}">${parts}</svg>`;
+}
+
+function renderCasts(casts) {
+  const blocks = casts.map((c) => `
+    <div class="gualabel">${esc(c.label)}</div>
+    <div class="guacast">
+      <div class="gua">${guaSVG(c.ben, c.moving)}
+        <div class="guaname">${esc(c.ben.name)}</div></div>
+      <div class="guaarrow">→</div>
+      <div class="gua">${guaSVG(c.zhi, 0)}
+        <div class="guaname">${esc(c.zhi.name)}</div></div>
+    </div>`).join("");
+  return `<div class="vizcard"><p class="viztitle">卦象（动爻已标示；`
+       + `主参之分见下文「卦盘一览」）</p>`
+       + `<div class="guarow">${blocks}</div></div>`;
+}
+
+function starHTML(st) {
+  let h = `<span class="st ${esc(st.k)}">${esc(st.n)}`;
+  if (st.b) h += `<span class="sb">${esc(st.b)}</span>`;
+  if (st.h) h += `<span class="sh">化${esc(st.h)}</span>`;
+  return h + "</span>";
+}
+
+function renderChart(ch) {
+  const by = {};
+  ch.palaces.forEach((p) => { by[p.branch] = p; });
+  const order = ["巳", "午", "未", "申", "辰", null, "酉", "卯", "戌",
+                 "寅", "丑", "子", "亥"];
+  const cells = order.map((br) => {
+    if (br === null) {
+      return `<div class="zwcenter">${esc(ch.ju)}　${esc(ch.yinyang)}<br>` +
+             `命宫在${esc(ch.ming)}　身宫在${esc(ch.shen)}<br>` +
+             `大限${esc(ch.daxian_dir)}行<br>` +
+             `${esc(ch.lunar)}<br>（公历 ${esc(ch.solar)}）</div>`;
+    }
+    const p = by[br];
+    const stars = p.stars.map(starHTML).join("") || "<span class='st misc'>（无星）</span>";
+    const kong = p.kong.length
+      ? `　<span class="kong">${p.kong.map((k) => esc(k === "截路空亡" ? "截空" : "旬空")).join(" ")}</span>` : "";
+    const cls = "pal" + (p.name === "命宫" ? " ming" : "");
+    return `<div class="${cls}">${stars}` +
+           `<div class="pmeta">${esc(p.name)}${p.body ? "·身" : ""} ${esc(p.gz)}` +
+           `　限${p.daxian[0]}-${p.daxian[1]}${kong}</div></div>`;
+  }).join("");
+  return `<div class="vizcard"><p class="viztitle">紫微十二宫` +
+         `（${esc(ch.tag)}；命宫框示，空亡标注）</p>` +
+         `<div class="zwgrid">${cells}</div></div>`;
+}
+
+function renderViz(v) {
+  const box = $("viz");
+  if (!v || !v.casts) { box.style.display = "none"; return; }
+  let html = renderCasts(v.casts);
+  if (v.chart) html += renderChart(v.chart);
+  box.innerHTML = html;
+  box.style.display = "block";
+}
+
 function onWorkerMessage(ev) {
   const m = ev.data;
   if (m.type === "status") { setStatus(m.text); return; }
@@ -308,6 +429,7 @@ function onWorkerMessage(ev) {
   } else {
     out.textContent = d.text;
     $("followup").style.display = d.kind === "llm" ? "block" : "none";
+    renderViz(d.viz);
     if (d.kind !== "error") recordRun($("question").value.trim(), d.text);
   }
   $("outbar").style.display = "block";

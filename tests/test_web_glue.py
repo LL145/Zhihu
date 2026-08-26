@@ -63,6 +63,27 @@ def test_refusal_and_default_model(app):
     assert app._cfg["reasoning_effort"] == "none"
 
 
+def test_viz_structured_data(app):
+    # 卦象图与十二宫图之数据（纯呈现层：只含盘面事实，不含断语）
+    d = _run(app, noLLM=True)   # 事类：问语卦主断，盘作语境
+    v = d["viz"]
+    labels = [c["label"] for c in v["casts"]]
+    assert labels[0] == "问语卦（主断）"
+    assert any(l.startswith("时间卦") for l in labels)
+    assert any(l.startswith("姓名卦") for l in labels)
+    c0 = v["casts"][0]
+    assert len(c0["ben"]["lines"]) == 6 and set(c0["ben"]["lines"]) <= {0, 1}
+    assert 1 <= c0["moving"] <= 6 and c0["ben"]["name"]
+    assert v["chart"]["tag"] == "语境·论禀赋"
+    assert len(v["chart"]["palaces"]) == 12
+    ming = next(p for p in v["chart"]["palaces"] if p["name"] == "命宫")
+    assert ming["branch"] == v["chart"]["ming"]
+    assert all("stars" in p and "kong" in p for p in v["chart"]["palaces"])
+
+    d = _run(app, question="我的命格如何", noLLM=True)   # 命理：盘主断
+    assert d["viz"]["chart"]["tag"] == "主断"
+
+
 def test_followup_requires_interpret(app):
     _run(app)
     d = json.loads(app.followup("再细说"))
