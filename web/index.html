@@ -57,8 +57,13 @@
     background: var(--panel); border: 1px solid var(--line);
     border-radius: 6px; padding: 1rem 1.1rem; font-size: .95rem;
   }
+  #outbar { display: none; margin-top: .5rem; }
   #followup { display: none; margin-top: 1rem; }
   #followup .row { align-items: end; }
+  #history { display: none; margin-top: 1.6rem; color: var(--dim);
+             font-size: .9rem; }
+  #history ul { list-style: none; margin: .4rem 0; padding: 0; }
+  #history li { margin: .15rem 0; }
   footer { color: var(--dim); font-size: .8rem; margin-top: 2.5rem; }
   a { color: var(--accent); }
 </style>
@@ -134,6 +139,9 @@
   </form>
 
   <pre id="out"></pre>
+  <div id="outbar">
+    <button type="button" class="minor" id="copyout">复制结果</button>
+  </div>
 
   <div id="followup">
     <div class="row">
@@ -146,6 +154,12 @@
       </div>
     </div>
   </div>
+
+  <details id="history">
+    <summary>占问记录（仅存本机浏览器，含追问全文）</summary>
+    <ul id="histlist"></ul>
+    <button type="button" class="minor" id="histclear">清除全部记录</button>
+  </details>
 
   <footer>仅供参考，不构成任何专业建议。源码与算法说明见
     <a href="https://github.com/LL145/Zhihu">GitHub 仓库</a>（ALGORITHM.md）。
@@ -177,8 +191,7 @@ $("clearkey").addEventListener("click", () => {
   try { localStorage.removeItem("tw.apiKey"); } catch (e) {}
 });
 
-const worker = new Worker("worker.js");
-window._worker = worker;   // 端到端测试之驱动口
+let worker = null;         // 待 SW 接管后创建（见文末 startWorker）
 let ready = false, busy = false, timer = null;
 let pending = "run";   // 当前在途请求：run | followup
 let lastAsk = "";
@@ -205,7 +218,75 @@ function setBusy(b, base) {
   if (b) startClock(base); else setStatus("就绪。");
 }
 
-worker.onmessage = (ev) => {
+// ── 占问记录（仅存本机浏览器 localStorage；含追问全文） ──────────
+const HKEY = "tw.history", HMAX = 20;
+let curRec = null;   // 本次起占的记录时间戳（追问续写入同一条）
+
+function loadHist() {
+  try { return JSON.parse(localStorage.getItem(HKEY)) || []; }
+  catch (e) { return []; }
+}
+function saveHist(h) {
+  try { localStorage.setItem(HKEY, JSON.stringify(h)); } catch (e) {}
+}
+function renderHist() {
+  const h = loadHist(), ul = $("histlist");
+  $("history").style.display = h.length ? "block" : "none";
+  ul.innerHTML = "";
+  h.forEach((r) => {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "minor";
+    b.textContent = new Date(r.t).toLocaleString() + "｜" +
+                    (r.q.length > 24 ? r.q.slice(0, 24) + "…" : r.q);
+    b.addEventListener("click", () => {
+      const out = $("out");
+      out.style.display = "block";
+      out.textContent = r.text;
+      $("outbar").style.display = "block";
+      $("followup").style.display = "none";   // 旧会话不可续问，须重起占
+      curRec = null;
+      out.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    li.appendChild(b); ul.appendChild(li);
+  });
+}
+function recordRun(question, text) {
+  const h = loadHist();
+  curRec = Date.now();
+  h.unshift({ t: curRec, q: question, text });
+  saveHist(h.slice(0, HMAX));
+  renderHist();
+}
+function recordUpdate(text) {
+  if (curRec === null) return;
+  const h = loadHist(), r = h.find((x) => x.t === curRec);
+  if (r) { r.text = text; saveHist(h); }
+}
+$("histclear").addEventListener("click", () => {
+  try { localStorage.removeItem(HKEY); } catch (e) {}
+  curRec = null;
+  renderHist();
+});
+renderHist();
+
+$("copyout").addEventListener("click", async () => {
+  const text = $("out").textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus("已复制到剪贴板。");
+  } catch (e) {   // 剪贴板 API 被拒（旧浏览器/权限）则退回选中复制
+    const sel = window.getSelection(), range = document.createRange();
+    range.selectNodeContents($("out"));
+    sel.removeAllRanges(); sel.addRange(range);
+    setStatus(document.execCommand("copy") ? "已复制到剪贴板。"
+                                           : "复制失败，请手动选中复制。",
+              false);
+    sel.removeAllRanges();
+  }
+});
+
+function onWorkerMessage(ev) {
   const m = ev.data;
   if (m.type === "status") { setStatus(m.text); return; }
   if (m.type === "fatal") {
@@ -224,10 +305,13 @@ worker.onmessage = (ev) => {
     out.textContent += "\n\n── 追问 ────────────────────\n" +
                        "问：" + lastAsk + "\n\n" + d.text;
     if (d.kind === "followup") $("ask").value = "";
+    if (d.kind !== "error") recordUpdate(out.textContent);
   } else {
     out.textContent = d.text;
     $("followup").style.display = d.kind === "llm" ? "block" : "none";
+    if (d.kind !== "error") recordRun($("question").value.trim(), d.text);
   }
+  $("outbar").style.display = "block";
   if (d.kind === "error") setStatus("出错（详情见输出区）", true);
   out.scrollIntoView({ behavior: "smooth", block: "nearest" });
 };
@@ -270,6 +354,31 @@ $("askgo").addEventListener("click", () => {
 $("ask").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter") { ev.preventDefault(); $("askgo").click(); }
 });
+
+// 静态资源缓存（sw.js）：先注册 Service Worker、待其接管本页再启
+// Worker——首次载入即把运行时与资产全量入缓存，此后二次打开秒开、
+// 断网也能起占。SW 不可用（注册失败/超时）则照常直启，不碍使用。
+const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+
+async function swTakeover() {
+  if (!("serviceWorker" in navigator)) return;
+  await navigator.serviceWorker.register("sw.js");
+  await Promise.race([navigator.serviceWorker.ready, wait(3000)]);
+  if (!navigator.serviceWorker.controller) {   // 等 clients.claim 生效
+    await Promise.race([
+      new Promise((res) => navigator.serviceWorker.addEventListener(
+        "controllerchange", res, { once: true })),
+      wait(2000),
+    ]);
+  }
+}
+
+(async () => {
+  try { await swTakeover(); } catch (e) { /* 注册失败不影响使用 */ }
+  worker = new Worker("worker.js");
+  window._worker = worker;   // 端到端测试之驱动口
+  worker.onmessage = onWorkerMessage;
+})();
 </script>
 </body>
 </html>

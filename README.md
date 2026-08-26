@@ -46,7 +46,9 @@
 Key（默认模型 `z-ai/glm-5.3`）——Key 只保存在本机浏览器
 （localStorage），不入仓库，请求由浏览器直达 OpenRouter，不经任何
 第三方服务器。首次打开需加载十余 MB 的 Python 运行时（来自
-cdn.jsdelivr.net），之后有缓存。
+cdn.jsdelivr.net）；此后由 Service Worker 缓存，二次打开快、断网
+也能起占（大模型解读除外）。每次占问自动存入本机占问记录
+（localStorage，至多 20 条，含追问全文，可一键清除），结果可一键复制。
 
 > 一次性设置：仓库 **Settings → Pages → Build and deployment →
 > Source** 选 "**GitHub Actions**"（Actions 令牌无权代建 Pages 站点，
