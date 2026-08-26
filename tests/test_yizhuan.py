@@ -55,9 +55,22 @@ def test_tiyong_and_shuogua_readings(tmp_path):
     ids = [r.cite_id for r in sel.readings]
     assert "shuogua:11:li" in ids and "shuogua:11:dui" in ids
     ti = next(r for r in sel.readings if r.cite_id == "shuogua:11:li")
-    assert "体卦离" in ti.role and ti.context_ids == ["shuogua:7"]
+    assert "体卦离" in ti.role
+    # 性情章附体卦下；万物属类逐卦附之（meihua 库在则有）
+    assert ti.context_ids == ["shuogua:7", "meihua:1:xiang:wanwu:li"]
     assert not ti.primary
     assert "兑为用、离为体" in sel.rule
+
+
+def test_wanwu_attached_to_tiyong_readings():
+    # 真库：体用两卦各附《梅花易数》八卦万物属类逐卦单元
+    sel = selection.select_meihua(kb, 49, 55, 5)
+    for gua, py in (("离", "li"), ("兑", "dui")):
+        r = next(x for x in sel.readings if x.cite_id == f"shuogua:11:{py}")
+        assert f"meihua:1:xiang:wanwu:{py}" in r.context_ids
+        assert "附梅花万物属类" in r.role
+    assert "万物" in kb.citation("meihua:1:xiang:wanwu:li")["source"] \
+        or "属类" in kb.citation("meihua:1:xiang:wanwu:li")["source"]
 
 
 def test_no_yizhuan_degrades_silently(tmp_path):

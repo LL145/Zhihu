@@ -62,15 +62,20 @@ def tiyong(kb: KnowledgeBase, ben_id: int, moving_pos: int):
 
 
 def _shuogua_readings(kb, ti, yong):
-    """体用两卦之广象（说卦第十一章）；性情章附于体卦下。缺库则不附。"""
+    """体用两卦之取象：说卦广象为主，《梅花易数》八卦万物属类逐卦附之
+    （meihua:1:xiang:wanwu:*，v3.1.5 所候）；性情章附于体卦下。缺库则不附。"""
     readings = []
     for name, role_prefix in ((ti, "体卦"), (yong, "用卦")):
         cid = f"shuogua:11:{PINYIN[name]}"
         if not kb.has(cid):
             return []
         ctx = ["shuogua:7"] if role_prefix == "体卦" and kb.has("shuogua:7") else []
+        wanwu = f"meihua:1:xiang:wanwu:{PINYIN[name]}"
+        if kb.has(wanwu):
+            ctx.append(wanwu)
         readings.append(Reading(
-            cite_id=cid, role=f"{role_prefix}{name}取象（说卦·广象，入解读）",
+            cite_id=cid, role=f"{role_prefix}{name}取象（说卦·广象，"
+                              "附梅花万物属类，入解读）",
             primary=False, context_ids=ctx))
     return readings
 
