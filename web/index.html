@@ -49,6 +49,12 @@
   }
   button.minor { background: transparent; color: var(--accent);
                  letter-spacing: 0; padding: .3em .8em; font-size: .85rem; }
+  #examples .hint { margin-top: .5rem; }
+  .exrow { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .25rem; }
+  button.chip { background: transparent; color: var(--ink);
+                border: 1px solid var(--line); border-radius: 999px;
+                letter-spacing: 0; padding: .12em .7em; font-size: .82rem; }
+  button.chip:hover { border-color: var(--accent); color: var(--accent); }
   button:disabled { opacity: .45; cursor: wait; }
   #status { color: var(--dim); font-size: .9rem; margin: .8rem 0; }
   #status.err { color: var(--accent); }
@@ -115,6 +121,12 @@
       <label for="question">所问之事 *</label>
       <textarea id="question" required
                 placeholder="如：近期换一份工作是否合适"></textarea>
+      <div id="examples">
+        <p class="hint">不知问什么？点一例即填。<b>问事</b>（以问语起卦作断）：</p>
+        <div class="exrow" id="ex-event"></div>
+        <p class="hint"><b>问命</b>（命格时运走紫微盘主断——须一并填生辰，缺则以卦就当下之势）：</p>
+        <div class="exrow" id="ex-chart"></div>
+      </div>
       <div class="row">
         <div>
           <label for="name">姓名（起姓名卦；可缺）</label>
@@ -213,6 +225,39 @@ ZHI.forEach((z, i) => {
     `${z}（${String(from).padStart(2,"0")}:00–${String(to).padStart(2,"0")}:59）`,
     z));
 });
+
+// ── 示例问语（一点即填）：覆盖判类诸类别，便于试用与知所当问 ──
+// 问事组走问语卦主断；问命组（命格/时运）配生辰方走紫微盘主断。
+// 措辞各含判类关键词（topic.py 规则层），无模型时判类亦如预期。
+const EX_EVENT = [
+  "近期换一份工作是否合适",              // 事业
+  "明年考研，现在开始备考合适吗",        // 学业
+  "与前任复合是否相宜",                  // 情感
+  "与同事起了误会，如何化解",            // 人际
+  "下月出国远行，此行顺阻如何",          // 出行
+  "今年是否宜搬家迁居",                  // 居所
+  "手上两个机会，选哪个更好",            // 决策抉择
+  "近日心绪不宁，所虑之事可解否",        // 其他（开放问法）
+];
+const EX_CHART = [
+  "我的命格如何，适合往哪个方向发展",    // 命格 → 命宫主星
+  "我今年运势如何",                      // 时运 → 大限流年
+  "我今年财运如何",                      // 时运带题材 → 并取财帛宫
+];
+function fillChips(rowId, list) {
+  const row = $(rowId);
+  list.forEach((q) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = q;
+    b.addEventListener("click", () => {
+      $("question").value = q;
+      $("question").focus();
+    });
+    row.appendChild(b);
+  });
+}
+fillChips("ex-event", EX_EVENT);
+fillChips("ex-chart", EX_CHART);
 
 try {
   $("apikey").value = localStorage.getItem("tw.apiKey") || "";
