@@ -60,6 +60,28 @@ def test_wubuli_not_buli():
     assert "无不利" in names and "不利" not in names
 
 
+def test_duiju_conditional():
+    # 显否定式与善辞并见为对举之句，归「条件」，不得被善辞吞没：
+    # 蒙上九「不利为寇，利御寇」、蹇卦辞「利西南，不利东北」
+    assert _decide("zhouyi:4:yao:6")["verdict"] == "条件"
+    assert _decide("zhouyi:39:guaci")["verdict"] == "条件"
+
+
+def test_feijiu_as_wujiu():
+    # 「匪咎」同「何咎」为无咎类，不得拆出「咎」记为戒。
+    # 大有初九「无交害，匪咎；艰则无咎。」→ 平
+    names = [t for t, _ in verdict.extract_tokens("无交害，匪咎；艰则无咎。")]
+    assert "匪咎" in names and "咎" not in names
+    assert _decide("zhouyi:14:yao:1")["verdict"] == "平"
+
+
+def test_audited_overrides():
+    # 抽样审定个案（data/verdict_overrides.json）：小人勿用之诫在用人
+    v = _decide("zhouyi:7:yao:6")
+    assert v["audited"] is True and v["verdict"] == "谨"
+    assert _decide("zhouyi:43:yao:3")["verdict"] == "条件"   # 凶/无咎对举
+
+
 def test_all_384_yao_classifiable():
     # 全部爻辞可分类且不抛异常；统计分布仅作观察
     from collections import Counter

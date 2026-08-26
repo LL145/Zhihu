@@ -17,7 +17,7 @@ _TOKENS = [
     ("无不利", "pos"), ("无攸利", "dneg"), ("不利", "dneg"),
     ("元吉", "pos2"), ("大吉", "pos2"),
     ("悔亡", "posl"), ("无悔", "posl"), ("有悔", "negs"),
-    ("无咎", "neut"), ("何咎", "neut"),
+    ("无咎", "neut"), ("何咎", "neut"), ("匪咎", "neut"),
     ("勿用", "dneg"), ("勿恤", "posl"),
     ("凶", "neg2"), ("厉", "risk"), ("吝", "negs"), ("悔", "negs"), ("咎", "negs"),
     ("吉", "pos"), ("亨", "pos"), ("利", "pos"),
@@ -55,8 +55,10 @@ def classify(tokens):
         return "凶"
     if "risk" in cats:
         return "谨" if (pos_major or "posl" in cats or "neut" in cats) else "危"
-    if "dneg" in cats and not pos_major:
-        return "忌"
+    if "dneg" in cats:
+        # 显否定式与善辞并见即对举之句（不利为寇利御寇、利西南不利东北），
+        # 吉凶系于所行，归「条件」，不得被善辞吞没（2026-08 抽样审定所见）
+        return "条件" if pos_major else "忌"
     if pos_major and "negs" in cats:
         return "谨"
     if pos_major or "posl" in cats:
