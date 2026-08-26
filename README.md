@@ -152,7 +152,8 @@ py -m tianwen -q "所问之事" --no-llm --full
 # 现藏：周易经传（十翼全）、王弼《周易注》、《梅花易数》卷一二、
 #       《京氏易传》《火珠林》《黄金策》（六爻典据，暂只供翻检）、
 #       《紫微斗数全书》卷一至三（含赋文格诀）、托勒密《占星四书》
-#       （Ashmand 英译公版，英文检索词亦可）
+#       （Ashmand 英译公版，英文检索词亦可）；繁体检索词亦通
+#       （字级归一表，仅检索用——引文校验仍逐字）
 py -m tianwen.corpus 大衍之数
 py -m tianwen.corpus --cite 西林寺牌额占
 py -m tianwen.corpus --cite xici:shang:9
@@ -229,7 +230,8 @@ tianwen/
   knowledge.py   典籍知识库：结构化查表（64卦 + 彖象传 + 十翼补编 +
                  梅花语料，非向量检索）
   corpus.py      藏书检索层：catalog 目录 / get 取文 / search 关键词
-                 检索（跨易类与紫微两库；py -m tianwen.corpus）
+                 检索（跨易类与紫微两库，繁简互通、标点无关；
+                 py -m tianwen.corpus）
   llm.py         占断与讲释（OpenRouter；占者之断，无据不断，异于定例须明据）
   validator.py   引文校验器：逐字比对＋占断必须标据，防幻觉闸门
   redline.py     红线拦截：医疗/投资/法律/寿夭类问题拒答
@@ -263,7 +265,8 @@ tianwen/
                  《火珠林》《黄金策》（六爻纳甲典据，藏书层）；
                  tetrabiblos.json 托勒密《占星四书》（Ashmand 英译公版，
                  四卷 70 章）；strokes.json 汉字笔画表（Unicode Unihan
-                 kTotalStrokes）；ephemeris.json 七曜星历系数表（数据表）
+                 kTotalStrokes）；ephemeris.json 七曜星历系数表（数据表）；
+                 t2s.json 繁→简归一表（检索用数据表，OpenCC 字典提取）
 web/             网页试用版（GitHub Pages + Pyodide）：index.html 页面、
                  worker.js 加载运行时、app.py 胶水层（浏览器内原样跑
                  本包与校验闸门；胶水层有测试盯守，部署见
@@ -282,8 +285,10 @@ tools/
                               Ashmand 英译（四卷 70 章，西洋占星语料）
   import_ephemeris_tables.py  生成七曜星历系数表（VSOP87D 截断＋月表，
                               生成时对照全表自检）
+  import_opencc_t2s.py        自 OpenCC 字典生成繁→简归一表（检索层
+                              繁简互通；乾等多义字保形弃收）
   gen_ziwei_fixtures.py       以 py-iztro 生成排盘命例回归集（开发机用）
-tests/           306 项测试：起卦确定性（含问语起卦）、占法七情形、
+tests/           309 项测试：起卦确定性（含问语起卦）、占法七情形、
                  断辞映射、问事分类、
                  注疏与文言挂载、说卦体用取象、占章按类附取、藏书检索、
                  引文校验（含主断唯一）、LLM 重试与追问、单一模式路由与

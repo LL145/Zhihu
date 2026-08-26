@@ -3,7 +3,9 @@
 三个入口：
     catalog()             藏书目录：书名、来源、许可、单元数、校对状态
     get(cite_id)          按引文编号取全文（跨易类与紫微两库）
-    search(query, ...)    标点无关的关键词检索，返回命中单元与上下文摘要
+    search(query, ...)    标点无关、繁简互通的关键词检索，返回命中
+                          单元与上下文摘要（归一表 data/t2s.json 两侧
+                          同规整；引文校验不经归一，仍逐字）
 
 检索是确定性查表加线性扫描——全部语料不足 1MB，内存即索引，
 毫秒可回，无数据库、无向量库。将来语料涨到此法吃力时，在本模块
@@ -20,11 +22,17 @@
 """
 
 import argparse
+import json
 from functools import lru_cache
+from pathlib import Path
 
 from . import strokes
 from .knowledge import KnowledgeBase
 from .ziwei.knowledge import ZiweiKB
+
+#: 繁→简字级归一表（检索层数据表，非典籍；tools/import_opencc_t2s.py
+#: 自 OpenCC 字典生成，来源与约定见 data/PROOFREADING.md）
+T2S_PATH = Path(__file__).parent / "data" / "t2s.json"
 
 #: 藏书划分：cite_id 前缀 → 所属书目。次序即目录次序。
 BOOKS = [
@@ -74,12 +82,20 @@ def _units():
     return rows
 
 
+@lru_cache(maxsize=1)
+def _t2s():
+    """繁→简归一表。检索词与单元文两侧同规整（繁简互检）；引文校验
+    （validator）不经此表——引文仍须逐字照抄库文原字。"""
+    return json.loads(T2S_PATH.read_text("utf-8"))["map"]
+
+
 def _norm_map(s):
-    """仅保留汉字，并记各汉字在原文中的位置（摘要定位用）。"""
+    """仅保留汉字并繁→简归一，记各字在原文中的位置（摘要定位用）。"""
     chars, idx = [], []
+    t2s = _t2s()
     for i, ch in enumerate(s):
         if "㐀" <= ch <= "鿿" or "豈" <= ch <= "﫿":
-            chars.append(ch)
+            chars.append(t2s.get(ch, ch))
             idx.append(i)
     return "".join(chars), idx
 

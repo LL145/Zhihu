@@ -50,6 +50,47 @@ def test_search_limit_and_errors():
         corpus.search("，。！？")
 
 
+def test_search_traditional_interop():
+    # 繁简互通（归一表 data/t2s.json）：繁体检索词命中简体库文
+    assert [h["cite_id"] for h in corpus.search("謙謙君子", limit=1)] \
+        == ["xiaoxiang:15:1"]
+    assert any(h["cite_id"].startswith("ziwei:")
+               for h in corpus.search("天樑", limit=3))     # 书写变体 樑
+    assert corpus.search("飛鳥遺之音", limit=1)[0]["cite_id"] == "tuan:62"
+    assert corpus.search("體用", limit=1)[0]["cite_id"] == "meihua:2:tiyong"
+    # 摘要仍取库文原字（归一只用于比对，不改原文）
+    assert "谦谦君子" in corpus.search("謙謙君子", limit=1)[0]["snippet"]
+    # 书名检索同归一
+    assert corpus.find_source("體用總訣") == \
+        [("meihua:2:tiyong", "《梅花易数》·卷二·体用总诀")]
+
+
+def test_t2s_keeps_qian_and_validator_verbatim():
+    # 乾为多义保形之字（乾卦库文保繁）：查「乾」中乾、查「干」不误中乾卦
+    assert corpus._t2s().get("乾") is None
+    ids = [h["cite_id"] for h in corpus.search("乾坤", limit=3)]
+    assert "xici:shang:1" in ids
+    assert all("乾" not in corpus.get(h["cite_id"])["text"][:60]
+               for h in corpus.search("干父", limit=2))
+    # 归一只在检索层：引文校验仍逐字，繁体引文照旧不过闸门
+    from tianwen.validator import validate
+    allowed = {"xiaoxiang:15:1": corpus.get("xiaoxiang:15:1")["text"]}
+    r = {"conclusion": "白话。", "judgment": "断 [xiaoxiang:15:1]",
+         "reasons": "理由 [xiaoxiang:15:1]", "advice": ["建议"],
+         "quotes": [{"text": "謙謙君子", "cite_id": "xiaoxiang:15:1"}]}
+    assert any("逐字" in e for e in
+               validate(r, allowed, frozenset(allowed)))
+
+
+def test_t2s_table_integrity():
+    import json
+    d = json.loads(corpus.T2S_PATH.read_text("utf-8"))
+    assert d["meta"]["count"] == len(d["map"]) > 3000
+    assert "引文校验不经此表" in d["meta"]["conversion"]
+    assert all(len(k) == 1 and len(v) == 1 and k != v
+               for k, v in d["map"].items())
+
+
 def test_find_source_by_book_name(capsys):
     # 对外展示只列古籍原名，故 --cite 也认书名（唯一命中即出全文）
     assert corpus.find_source("体用总诀") == \
