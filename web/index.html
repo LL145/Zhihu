@@ -437,9 +437,27 @@ function onWorkerMessage(ev) {
   out.scrollIntoView({ behavior: "smooth", block: "nearest" });
 };
 
+// ── 重占冷却引导（DESIGN §7.5）：同一问题短期重占，先以蒙卦之辞
+// 引导确认——「初筮告，再三渎，渎则不告」（《周易·蒙》卦辞）。
+// 「同一事」按问题原文逐字相同论（本机占问记录内查，不出浏览器）。
+const RECAST_COOL_MS = 24 * 3600 * 1000;
+function recastGuard(q) {
+  const prev = loadHist().find((r) => r.q === q &&
+                               Date.now() - r.t < RECAST_COOL_MS);
+  if (!prev) return true;
+  return confirm(
+    `此事已于 ${new Date(prev.t).toLocaleString()} 占过。\n` +
+    "《周易·蒙》卦辞：「初筮告，再三渎，渎则不告。」——同一事短期" +
+    "重占，古义不取；可先在页末「占问记录」回看前占。\n\n仍要再占吗？");
+}
+
 $("form").addEventListener("submit", (ev) => {
   ev.preventDefault();
   if (!ready || busy) return;
+  if (!recastGuard($("question").value.trim())) {
+    setStatus("已依「再三渎，渎则不告」之义暂缓重占——可于页末回看前占，或改问他事。");
+    return;
+  }
   const apiKey = $("apikey").value.trim();
   const model = $("model").value.trim() || "z-ai/glm-5.3";
   try {
