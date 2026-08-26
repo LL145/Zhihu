@@ -113,6 +113,50 @@ def test_empty_quotes_rejected():
     assert validate(r, ALLOWED) != []
 
 
+# ── 畸形结构：作校验错误反馈，不得抛异常 ──────────────────────
+
+
+def test_reasons_as_string_list_coerced():
+    # deepseek 等模型常把多段 reasons 输出为字符串数组：语义等同，合并收下
+    r = _ok_result()
+    r["reasons"] = ["第一段 [zhouyi:1:yao:4]", "第二段 [xiaoxiang:1:4]"]
+    assert validate(r, ALLOWED) == []
+    assert r["reasons"] == "第一段 [zhouyi:1:yao:4]\n\n第二段 [xiaoxiang:1:4]"
+
+
+def test_reasons_wrong_type_reported_not_raised():
+    for bad in (["段落", ["嵌套数组"]], [{"text": "对象"}], 42, {"a": 1}):
+        r = _ok_result()
+        r["reasons"] = bad
+        assert any("reasons 须为单个字符串" in e for e in validate(r, ALLOWED))
+
+
+def test_judgment_and_conclusion_wrong_type_reported():
+    r = _ok_result()
+    r["judgment"] = ["宜进。[zhouyi:1:yao:4]"]
+    assert any("judgment 须为单个字符串" in e for e in validate(r, ALLOWED))
+    r = _ok_result()
+    r["conclusion"] = {"text": "可以走"}
+    assert any("conclusion 须为单个字符串" in e for e in validate(r, ALLOWED))
+
+
+def test_advice_items_must_be_strings():
+    r = _ok_result()
+    r["advice"] = [{"tip": "建议"}, "建议二"]
+    assert validate(r, ALLOWED) == ["advice 须为字符串数组"]
+
+
+def test_quote_items_wrong_type_reported():
+    r = _ok_result()
+    r["quotes"] = [{"text": ["或跃在渊"], "cite_id": "zhouyi:1:yao:4"}]
+    assert any("须含字符串字段" in e for e in validate(r, ALLOWED))
+
+
+def test_followup_answer_wrong_type_reported():
+    r = {"answer": ["回答"], "quotes": []}
+    assert validate_followup(r, ALLOWED) != []
+
+
 # ── 追问回答校验 ──────────────────────────────
 
 

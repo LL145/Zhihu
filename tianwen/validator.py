@@ -8,6 +8,10 @@
 - 理由（reasons）中方括号标注的 cite_id 须属于本次给定的文本集合；
 - 白话结论（conclusion）须为纯白话：不得夹带 [cite_id] 标注；
 - 必填字段齐全。任何一条不过即拒绝本次输出。
+
+结构宽容：多段 reasons 常被模型输出为字符串数组，语义等同，合并收下；
+其余字段类型不符一律作校验错误反馈（重试时模型据以改正）——校验器
+对任何形状的输出都只返回错误列表，不得抛异常。
 """
 
 import re
@@ -28,8 +32,9 @@ def normalize(text: str) -> str:
 
 def _check_quotes(quotes, allowed, errors):
     for i, q in enumerate(quotes):
-        if not isinstance(q, dict) or "text" not in q or "cite_id" not in q:
-            errors.append(f"quotes[{i}] 须含 text 与 cite_id")
+        if not isinstance(q, dict) or not isinstance(q.get("text"), str) \
+                or not isinstance(q.get("cite_id"), str):
+            errors.append(f"quotes[{i}] 须含字符串字段 text 与 cite_id")
             continue
         cid = q["cite_id"]
         if cid not in allowed:
@@ -52,16 +57,23 @@ def validate(result: dict, allowed: dict, primary=None) -> list:
     """allowed: {cite_id: 原文}；primary: 主断侧 cite_id 集合（None 视同
     全部 allowed）。返回错误列表，空列表为通过。"""
     errors = []
+    if isinstance(result.get("reasons"), list) and result["reasons"] \
+            and all(isinstance(p, str) for p in result["reasons"]):
+        result["reasons"] = "\n\n".join(result["reasons"])
     for f in REQUIRED_FIELDS:
         if f not in result or not result[f]:
             errors.append(f"缺少字段或字段为空: {f}")
+    for f in ("conclusion", "judgment", "reasons"):
+        if f in result and result[f] and not isinstance(result[f], str):
+            errors.append(f"{f} 须为单个字符串，不得是数组或对象")
     if errors:
         return errors
 
     if not isinstance(result["quotes"], list) or not result["quotes"]:
         return ["quotes 须为非空数组"]
-    if not isinstance(result["advice"], list):
-        return ["advice 须为数组"]
+    if not isinstance(result["advice"], list) \
+            or not all(isinstance(a, str) for a in result["advice"]):
+        return ["advice 须为字符串数组"]
     if _CITE_MARK.search(result["conclusion"]):
         errors.append("白话结论（conclusion）须为纯白话，不得夹带 [cite_id] 标注")
 
