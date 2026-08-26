@@ -20,6 +20,7 @@ from .llm import followup as _followup
 from .llm import interpret as _interpret
 from .ziwei import chart as zchart
 from .ziwei import llm as zllm
+from .ziwei import patterns as zpatterns
 from .ziwei import report as zreport
 from .ziwei import selection as zselection
 from .ziwei.knowledge import ZiweiKB
@@ -324,6 +325,24 @@ class Session:
                        "只入解读语境，可引不可断")
             for star, hits, total in self.desk:
                 out.append(f"  {star}：命中 {total} 行，入语境 {len(hits)} 行")
+            parts.append("\n".join(out))
+        if getattr(self.sel, "ju", None) is not None:
+            total = zpatterns.RULE_COUNT + zpatterns.SKIP_COUNT
+            out = ["── 格局判定（确定性） " + "─" * 18]
+            out.append(f"  池：《全书·卷一》定富局／定贵局／定贫贱局／"
+                       f"定杂局共 {total} 局")
+            out.append(f"  规则：诀文自述星曜宫位条件可机判者 "
+                       f"{zpatterns.RULE_COUNT} 局逐条对照盘面（判定式与"
+                       "文义约定见 ALGORITHM.md 步骤 8）；认出之局入语境，"
+                       "可引不可断")
+            if self.sel.ju:
+                for m in self.sel.ju:
+                    out.append(f"  认出：{m.cat}·{m.name}——{m.basis}")
+            else:
+                out.append("  认出：无")
+            out.append(f"  不判 {zpatterns.SKIP_COUNT} 局（宁缺，逐类缘由）：")
+            for line in zpatterns.skip_lines(self.zkb):
+                out.append(f"    {line}")
             parts.append("\n".join(out))
         return "\n\n".join(parts)
 

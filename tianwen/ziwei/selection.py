@@ -26,6 +26,7 @@
 from dataclasses import dataclass, field
 
 from ..trigrams import ZHI
+from . import patterns
 
 MALEFICS = ("擎羊", "陀罗", "火星", "铃星", "地空", "地劫")
 
@@ -78,6 +79,7 @@ class ChartSelection:
     readings: list = field(default_factory=list)
     notes: list = field(default_factory=list)   # 借对宫等如实标注
     desk_stars: tuple = ()  # 书桌召回所依主断宫主星（ZiweiKB.desk 用）
+    ju: list = None         # 格局判定结果（问命格时非 None；凭证用）
 
     @property
     def primary(self):
@@ -168,6 +170,7 @@ def select_destiny(zkb, chart, aspect=None):
             cite_id=zkb.ming(s.name), context_ids=tuple(ctx), primary=True))
     sel.desk_stars = tuple(s.name for s in src.major())
     _add_gejue(zkb, sel, ming.branch)
+    _add_ju(zkb, chart, sel)
     _add_aspect(zkb, chart, sel, aspect)
     return sel
 
@@ -188,6 +191,26 @@ def _add_gejue(zkb, sel, branch):
     for cid in poge:
         sel.readings.append(Reading(
             role=f"安命（{branch}）失陷破格诀", cite_id=cid, primary=False))
+
+
+def _add_ju(zkb, chart, sel):
+    """格局判定器：《卷一》定富贵贫贱诸局中诀文条件可机判者逐条对照
+    盘面认局（patterns.py，判定式逐局注明原文与文义约定）。认出之局
+    连同盘面依据入语境（已合盘面，可引不可断，primary=False），不改
+    结论单源；不判之局及缘由进凭证（service.repro_text）。"""
+    sel.ju = patterns.judge(zkb, chart)
+    if not sel.ju:
+        sel.notes.append(f"格局判定：《卷一》定诸局可机判者 "
+                         f"{patterns.RULE_COUNT} 局逐条对照盘面，无一入局"
+                         f"（不判之 {patterns.SKIP_COUNT} 局缘由见凭证）")
+        return
+    sel.notes.append(f"格局判定：《卷一》定诸局可机判者 {patterns.RULE_COUNT} "
+                     f"局逐条对照盘面，认出 {len(sel.ju)} 局（判定依据随局"
+                     f"列出；不判之 {patterns.SKIP_COUNT} 局缘由见凭证）")
+    for m in sel.ju:
+        sel.readings.append(Reading(
+            role=f"认局：{m.cat}·{m.name}——{m.basis}",
+            cite_id=m.cite_id, primary=False))
 
 
 def _add_aspect(zkb, chart, sel, aspect):
