@@ -213,3 +213,33 @@ def test_year_branch_and_xu_age():
     # 年界依正月初一：2026 年 2 月初（未过丙午年初一）仍属乙巳
     assert c.year_branch(datetime(2026, 2, 1)) == "巳"
     assert c.xu_age(datetime(2026, 2, 1)) == 26
+
+
+def test_tianxing_tianyao_per_jue():
+    # 《安天刑天姚星诀》：天刑从酉上起正月顺至本生月，天姚从丑上起正月
+    # 顺至本生月（月数与安命身同依闰月约定）
+    c = chart.cast(datetime(2000, 9, 14, 12, 0), "男")   # 农历八月
+    assert c.star_palace("天刑").branch == "辰"           # 酉+7
+    assert c.star_palace("天姚").branch == "申"           # 丑+7
+    c = chart.cast(datetime(1984, 2, 15, 8, 0), "女")    # 农历正月
+    assert c.star_palace("天刑").branch == "酉"
+    assert c.star_palace("天姚").branch == "丑"
+    for s in (c.star_palace("天刑").stars + c.star_palace("天姚").stars):
+        if s.name in ("天刑", "天姚"):
+            assert s.kind == "misc" and s.brightness == "" and s.sihua == ""
+
+
+def test_kongwang_per_jue():
+    # 《安截路空亡诀》论本生年干：甲己申酉、乙庚午未、丙辛辰巳、
+    # 丁壬寅卯、戊癸子丑；《安旬中空亡诀》论本生年干支所在之旬
+    c = chart.cast(datetime(2000, 9, 14, 12, 0), "男")   # 庚辰年（甲戌旬）
+    assert c.jielu == ("午", "未") and c.xunkong == ("申", "酉")
+    assert c.kong_marks("午") == ["截路空亡"]
+    assert c.kong_marks("申") == ["旬中空亡"]
+    assert c.kong_marks("子") == []
+    c = chart.cast(datetime(1984, 2, 15, 8, 0), "女")    # 甲子年（甲子旬）
+    assert c.jielu == ("申", "酉") and c.xunkong == ("戌", "亥")
+    # 兼坐之宫两注并列（甲申年：截路申酉，甲申旬空午未——申唯截路；
+    # 丙申年：截路辰巳，丙申属甲午旬空辰巳——辰巳兼坐）
+    c = chart.cast(datetime(2016, 6, 1, 12, 0), "男")    # 丙申年
+    assert c.kong_marks("辰") == ["截路空亡", "旬中空亡"]

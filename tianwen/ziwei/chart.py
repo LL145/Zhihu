@@ -1,7 +1,9 @@
 """紫微斗数排盘引擎（确定性纯函数，无随机成分）。
 
 全部安星规则出自《紫微斗数全书·卷二》（中文维基文库《紫微斗數全書/卷二》，
-oldid 1963110），每条函数注明所据之诀。同一生辰必得同一盘，任何通行
+oldid 1963110），每条函数注明所据之诀。所安：十四主星、八吉六煞、
+杂曜天刑天姚（《安天刑天姚星诀》），另标截路空亡、旬中空亡二支于宫
+（《安截路空亡诀》《安旬中空亡诀》）。同一生辰必得同一盘，任何通行
 排盘工具可交叉核对（个别流派分歧处见下）。
 
 本产品流派约定（见 DESIGN.md 附录C；结果页如实标注）：
@@ -68,7 +70,7 @@ class LunarBirth:
 @dataclass(frozen=True)
 class PalaceStar:
     name: str
-    kind: str             # major / lucky / malefic
+    kind: str             # major / lucky / malefic / misc（杂曜：天刑天姚）
     brightness: str       # 庙/旺/得地/利益/平和/不得地/落陷；底本未载则空串
     sihua: str            # 禄/权/科/忌；无则空串
 
@@ -104,6 +106,8 @@ class Chart:
     palaces: list = field(default_factory=list)   # 12 项，palaces[0] 为命宫
     sihua: dict = field(default_factory=dict)     # {"禄": 星名, …}
     conventions: list = field(default_factory=list)
+    jielu: tuple = ()     # 截路空亡二支（《安截路空亡诀》论本生年干）
+    xunkong: tuple = ()   # 旬中空亡二支（《安旬中空亡诀》论本生年）
 
     def palace_of_branch(self, branch):
         for p in self.palaces:
@@ -123,6 +127,15 @@ class Chart:
                 if s.name == star_name:
                     return p
         return None
+
+    def kong_marks(self, branch):
+        """branch 之宫的空亡标记（截路空亡／旬中空亡；无则空列表）。"""
+        marks = []
+        if branch in self.jielu:
+            marks.append("截路空亡")
+        if branch in self.xunkong:
+            marks.append("旬中空亡")
+        return marks
 
     def xu_age(self, at: datetime) -> int:
         """at 时之虚岁（农历年份差 + 1；年界依正月初一约定）。"""
@@ -274,6 +287,21 @@ _HUOLING = {"寅": (1, 3), "午": (1, 3), "戌": (1, 3),
             "巳": (3, 10), "酉": (3, 10), "丑": (3, 10),
             "亥": (9, 10), "卯": (9, 10), "未": (9, 10)}
 
+# 截路空亡（《安截路空亡诀》论本生年）：甲己申酉宫，乙庚午未宫，
+# 丙辛辰巳宫，丁壬寅卯宫，戊癸子丑宫。
+_JIELU = {"甲": (8, 9), "己": (8, 9), "乙": (6, 7), "庚": (6, 7),
+          "丙": (4, 5), "辛": (4, 5), "丁": (2, 3), "壬": (2, 3),
+          "戊": (0, 1), "癸": (0, 1)}
+
+
+def xunkong_branches(year_gan: str, year_zhi: str):
+    """旬中空亡（《安旬中空亡诀》论本生年）：甲子旬中空戌亥，甲寅旬中
+    空子丑，甲辰旬中空寅卯，甲午旬中空辰巳，甲申旬中空午未，甲戌旬中
+    空申酉——本生年干支所在之旬，旬内未及之二支为空。"""
+    off = (ZHI.index(year_zhi) - GAN.index(year_gan)) % 12
+    return ZHI[(off + 10) % 12], ZHI[(off + 11) % 12]
+
+
 # 四化（《安禄权科忌四星变化诀》论生年干）：甲廉破武阳，乙机梁紫月，
 # 丙同机昌廉，丁月同机巨，戊贪月弼机，己武贪梁曲，庚日武阴同，
 # 辛巨阳曲昌，壬梁紫府武（天府化科，流行诀作左辅），癸破巨阴贪。
@@ -320,11 +348,17 @@ def minor_star_positions(lunar: LunarBirth, month: int, hz: int) -> dict:
         # 《天空地劫诀》论本生时：亥上起子顺安劫，逆向便是天空乡。
         "地劫": ((11 + hz) % 12, "malefic"),
         "地空": ((11 - hz) % 12, "malefic"),
+        # 《安天刑天姚星诀》：天刑从酉上起正月顺至本生月，天姚从丑上
+        # 起正月顺至本生月（月数与安命身同依闰月约定）。
+        "天刑": ((9 + month - 1) % 12, "misc"),
+        "天姚": ((1 + month - 1) % 12, "misc"),
     }
     return pos
 
 
 # ── 排盘主函数 ──────────────────────────────────────────────────────────
+
+_KIND_ORDER = {"major": 0, "lucky": 1, "malefic": 2, "misc": 3}
 
 CONVENTIONS = (
     "年干支以正月初一为界（非立春）",
@@ -376,7 +410,7 @@ def cast(birth: datetime, gender: str) -> Chart:
                 brightness=brightness.of(sname, ZHI[b]) or "",
                 sihua=sihua_of.get(sname, ""),
             ))
-        stars.sort(key=lambda s: (s.kind != "major",))
+        stars.sort(key=lambda s: _KIND_ORDER[s.kind])
         # 大限：首限起命宫，起限之岁为局数，每限十年，顺逆依阴阳男女。
         # palaces[i] 在支序 ming-i；顺行第 k 限在支序 ming+k，故 k=(-i)%12。
         k = (-i) % 12 if forward else i
@@ -394,4 +428,6 @@ def cast(birth: datetime, gender: str) -> Chart:
         palaces=palaces,
         sihua={hua: name for name, hua in sihua_of.items()},
         conventions=list(CONVENTIONS),
+        jielu=tuple(ZHI[i] for i in _JIELU[lunar.year_gan]),
+        xunkong=xunkong_branches(lunar.year_gan, lunar.year_zhi),
     )

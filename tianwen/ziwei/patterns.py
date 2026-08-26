@@ -6,12 +6,12 @@
   转码为判定式（下方 _RULES，每条注明原文），认出之局连同盘面依据
   （何星何宫）如实列出；
 - 不可机判者宁缺，逐局录明缘由（_SKIPPED，进凭证）：诀作「见前批注」
-  无判据者、涉空亡者（截路旬中空亡诸星未安）、涉天刑者（未安）、
-  文义两可不强解者、定杂局论限运盛衰非静态星曜组合者；
+  无判据者、文义两可不强解者、定杂局论限运盛衰非静态星曜组合者
+  （涉空亡与天刑诸局已随天刑天姚与截路旬中空亡安讫解锁）；
 - 认出之局只入解读语境（可引不可断），不改结论单源（ALGORITHM.md 五）。
 
 文义约定（今法约定，ALGORITHM.md 步骤 8 如实标注）：
-- 夹＝紧邻两宫各一；拱＝三合二宫（本宫支 +4、+8）；向＝对宫；
+- 夹＝紧邻两宫各一；拱＝三合二宫（本宫支 +4、+8）；向＝对宫；冲＝对宫；
 - 「同守身命」解作分守身、命二宫（武曲廉贞依安星诀永不同宫）；
 - 「反背」依《全书》庙陷表失陷（不得地／落陷）为准；
 - 「逢巨暗」承同列「生不逢时」句例（「命坐空亡逢廉贞」之「逢」即命宫
@@ -20,10 +20,16 @@
 - 「庙旺」从严只取庙、旺两级；
 - 「四杀守身命临陷地」承「同守身命」句例解作四杀之星分守身、命二宫
   且所见皆陷（四星俱守则羊陀庙陷互斥不可能，命身同宫无以分守，
-  均不成局）。
+  均不成局）；
+- 「坐空亡」「落空亡」＝其宫之支属截路空亡或旬中空亡（其一即坐）；
+- 「同临身命」（刑囚夹印）依字面解作二星同宫而其宫为命宫或身宫——
+  天刑廉贞依安星诀可同宫，无须如武贞「同守身命」改读分守；
+- 「两杀」（禄逢两杀）即空劫：禄存之宫坐空亡，又见地空或地劫。
 
-个别夹局（如财荫夹印之武梁夹相）依安星诀星序实不可能成局，仍照诀
-逐字转码——不合则不出，不因不可能而删诀。
+个别局依安星诀星序实不可能成局，仍照诀逐字转码——不合则不出，不因
+不可能而删诀：财荫夹印之武梁永不夹相；荫印拱身之「身临田宅」依
+《安身命例》身宫恒落命、妻妾、财帛、迁移、官禄、福德六宫（命身支序
+恒差偶数），永不临田宅。
 """
 
 from dataclasses import dataclass
@@ -43,7 +49,7 @@ class JuMatch:
 
 
 class _Facts:
-    """判定所用之盘面事实（星之所在、亮度、命身、各宫之支）。"""
+    """判定所用之盘面事实（星之所在、亮度、命身、各宫之支、空亡）。"""
 
     def __init__(self, chart):
         self.chart = chart
@@ -56,6 +62,12 @@ class _Facts:
         self.ming = ZHI.index(chart.ming_branch)
         self.shen = ZHI.index(chart.shen_branch)
         self.pb = {p.name: ZHI.index(p.branch) for p in chart.palaces}
+        # 空亡：支序 → 标记文字（截路空亡／旬中空亡，兼坐则并列）
+        self.kong = {}
+        for i, br in enumerate(ZHI):
+            marks = chart.kong_marks(br)
+            if marks:
+                self.kong[i] = "、".join(marks)
 
     def palace_desc(self, i):
         p = self.chart.palace_of_branch(ZHI[i])
@@ -108,6 +120,20 @@ def _cai_lu_jia_ma(f):
     return None
 
 
+def _yin_yin_gong_shen(f):
+    # 「荫印拱身 身临田宅梁相拱冲是也，勿坐空亡。」（拱＝三合、冲＝对宫；
+    # 依《安身命例》身宫恒落命妻财迁官福六宫、永不临田宅——照诀转码，
+    # 不合则不出，不因不可能而删诀）
+    x = f.pb["田宅"]
+    if f.shen != x or x in f.kong:
+        return None
+    spots = {(x + 4) % 12, (x + 8) % 12, (x + 6) % 12}
+    if f.pos["天梁"] in spots and f.pos["天相"] in spots:
+        return (f"身宫临田宅（{ZHI[x]}）不坐空亡，天梁在{ZHI[f.pos['天梁']]}、"
+                f"天相在{ZHI[f.pos['天相']]}拱冲")
+    return None
+
+
 def _ri_yue_zhao_bi(f):
     # 「日月照璧 日月临田宅宫是也，喜居墓库。」
     x = f.pb["田宅"]
@@ -121,6 +147,19 @@ def _jin_can_guang_hui(f):
     ming = f.chart.palaces[0]
     if f.ming == ZHI.index("午") and [s.name for s in ming.major()] == ["太阳"]:
         return "命宫在午，太阳单守"
+    return None
+
+
+def _ri_yue_jia_ming(f):
+    # 「日月夹命 不坐空亡遇逢本宫有吉星是也。」（局名之义：太阳太阴
+    # 夹命宫；命宫不坐空亡；「逢」承句例＝本宫见星，吉星取吉曜之属）
+    x = f.ming
+    if x in f.kong or not f.flank("太阳", "太阴", x):
+        return None
+    lucky = [s.name for s in f.chart.palaces[0].stars if s.kind == "lucky"]
+    if lucky:
+        return (f"太阳在{ZHI[f.pos['太阳']]}、太阴在{ZHI[f.pos['太阴']]}"
+                f"夹命（{ZHI[x]}），命宫不坐空亡，见吉星{('、'.join(lucky))}")
     return None
 
 
@@ -196,6 +235,18 @@ def _ma_tou_dai_jian(f):
     return None
 
 
+def _xing_qiu_jia_yin(f):
+    # 「刑囚夹印 天刑廉贞同临身命主武勇之人。」（「同临身命」依字面：
+    # 二星同宫而其宫为命宫或身宫——天刑廉贞可同宫，无须改读分守）
+    x = f.pos["廉贞"]
+    if f.pos.get("天刑") != x or x not in (f.ming, f.shen):
+        return None
+    which = "命宫" if x == f.ming else "身宫"
+    if f.ming == f.shen == x:
+        which = "命身同宫"
+    return f"天刑与廉贞（囚）同临{which}（{ZHI[x]}）"
+
+
 def _tan_huo_xiang_feng(f):
     # 「贪火相逢 谓二星守命同居庙旺是也。」
     x = f.ming
@@ -241,6 +292,35 @@ def _jin_yu_fu_jia(f):
     if _at(f, "紫微", x) and f.flank("太阳", "太阴", x):
         return (f"紫微守命（{ZHI[x]}），太阳在{ZHI[f.pos['太阳']]}、"
                 f"太阴在{ZHI[f.pos['太阴']]}来夹")
+    return None
+
+
+def _sheng_bu_feng_shi(f):
+    # 「生不逢时 命坐空亡逢廉贞是也。」（坐空亡＝命宫支属截路或旬中空亡）
+    x = f.ming
+    if x in f.kong and _at(f, "廉贞", x):
+        return f"命宫（{ZHI[x]}）坐{f.kong[x]}，廉贞守命"
+    return None
+
+
+def _lu_feng_liang_sha(f):
+    # 「禄逢两杀 禄坐空亡又逢空劫杀星是也。」（禄＝禄存；「两杀」即
+    # 空劫；「逢」承句例＝其宫见其星：禄存之宫坐空亡，又见地空或地劫）
+    x = f.pos["禄存"]
+    if x not in f.kong:
+        return None
+    kj = [s for s in ("地空", "地劫") if f.pos[s] == x]
+    if kj:
+        return (f"禄存之宫（{f.palace_desc(x)}）坐{f.kong[x]}，"
+                f"又逢{('、'.join(kj))}")
+    return None
+
+
+def _ma_luo_kong_wang(f):
+    # 「马落空亡 马既落亡虽禄冲会无用主奔波。」
+    x = f.pos["天马"]
+    if x in f.kong:
+        return f"天马之宫（{f.palace_desc(x)}）落{f.kong[x]}"
     return None
 
 
@@ -307,8 +387,10 @@ _RULES = (
     ("ziwei:1:ju:fu:1", _cai_yin_jia_yin),
     ("ziwei:1:ju:fu:2", _ri_yue_jia_cai),
     ("ziwei:1:ju:fu:3", _cai_lu_jia_ma),
+    ("ziwei:1:ju:fu:4", _yin_yin_gong_shen),
     ("ziwei:1:ju:fu:5", _ri_yue_zhao_bi),
     ("ziwei:1:ju:fu:6", _jin_can_guang_hui),
+    ("ziwei:1:ju:gui:1", _ri_yue_jia_ming),
     ("ziwei:1:ju:gui:2", _ri_chu_fu_sang),
     ("ziwei:1:ju:gui:3", _yue_luo_hai_gong),
     ("ziwei:1:ju:gui:4", _yue_sheng_cang_hai),
@@ -317,11 +399,15 @@ _RULES = (
     ("ziwei:1:ju:gui:7", _cai_yin_jia_lu),
     ("ziwei:1:ju:gui:9", _zuo_gui_xiang_gui),
     ("ziwei:1:ju:gui:10", _ma_tou_dai_jian),
+    ("ziwei:1:ju:gui:15", _xing_qiu_jia_yin),
     ("ziwei:1:ju:gui:17", _tan_huo_xiang_feng),
     ("ziwei:1:ju:gui:18", _wu_qu_shou_yuan),
     ("ziwei:1:ju:gui:22", _quan_lu_sheng_feng),
     ("ziwei:1:ju:gui:23", _yang_ren_ru_miao),
     ("ziwei:1:ju:gui:27", _jin_yu_fu_jia),
+    ("ziwei:1:ju:pinjian:1", _sheng_bu_feng_shi),
+    ("ziwei:1:ju:pinjian:2", _lu_feng_liang_sha),
+    ("ziwei:1:ju:pinjian:3", _ma_luo_kong_wang),
     ("ziwei:1:ju:pinjian:4", _ri_yue_cang_hui),
     ("ziwei:1:ju:pinjian:5", _cai_yu_qiu_chou),
     ("ziwei:1:ju:pinjian:6", _yi_sheng_gu_pin),
@@ -331,14 +417,11 @@ _RULES = (
 
 #: 不可机判之局：cite_id → 缘由（宁缺；凭证如实列出）。
 _SKIPPED = (
-    ("ziwei:1:ju:fu:4", "诀有「勿坐空亡」之限，截路旬中空亡诸星未安"),
-    ("ziwei:1:ju:gui:1", "诀有「不坐空亡」之限，截路旬中空亡诸星未安"),
     ("ziwei:1:ju:gui:8", "「马前有禄印星同宫」文义两可，不强解"),
     ("ziwei:1:ju:gui:11", "诀作「见前批注」，无判据"),
     ("ziwei:1:ju:gui:12", "诀作「见前批注」，无判据"),
     ("ziwei:1:ju:gui:13", "诀作「见前批注」，无判据"),
     ("ziwei:1:ju:gui:14", "诀作「见前批注」，无判据"),
-    ("ziwei:1:ju:gui:15", "所须天刑未安"),
     ("ziwei:1:ju:gui:16", "诀作「见前批注」，无判据"),
     ("ziwei:1:ju:gui:19", "诀作「见前批注」，无判据"),
     ("ziwei:1:ju:gui:20", "诀作「见前批注」，无判据"),
@@ -346,9 +429,6 @@ _SKIPPED = (
     ("ziwei:1:ju:gui:24", "诀作「见前批注」，无判据"),
     ("ziwei:1:ju:gui:25", "诀作「见前批注」，无判据"),
     ("ziwei:1:ju:gui:26", "诀作「见前批注」，无判据"),
-    ("ziwei:1:ju:pinjian:1", "诀凭「命坐空亡」，截路旬中空亡诸星未安"),
-    ("ziwei:1:ju:pinjian:2", "诀凭「禄坐空亡」，截路旬中空亡诸星未安"),
-    ("ziwei:1:ju:pinjian:3", "诀凭「马落空亡」，截路旬中空亡诸星未安"),
     ("ziwei:1:ju:za:1", "定杂局论限运盛衰，非静态星曜组合"),
     ("ziwei:1:ju:za:2", "定杂局论限运盛衰，非静态星曜组合"),
     ("ziwei:1:ju:za:3", "定杂局论限运盛衰，非静态星曜组合"),

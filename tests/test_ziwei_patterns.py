@@ -90,10 +90,57 @@ def test_judge_deterministic():
 def test_skip_lines_name_reasons():
     lines = "\n".join(patterns.skip_lines(ZKB))
     assert "见前批注" in lines
-    assert "空亡诸星未安" in lines
-    assert "天刑未安" in lines
     assert "禄马佩印" in lines and "不强解" in lines
     assert "定杂局论限运盛衰" in lines
+    # 涉空亡与天刑诸局已随其星安讫解锁，不再以「未安」为由不判
+    assert "未安" not in lines
+
+
+# ── 空亡天刑解锁之六局（截路/旬中空亡、天刑随卷二诀安讫） ─────────
+
+
+def test_riyue_jiaming_with_lucky_no_kongwang():
+    m = _by_id(_matches(datetime(1950, 5, 28, 8)))["ziwei:1:ju:gui:1"]
+    assert m.name == "日月夹命" and m.cat == "定贵局"
+    assert m.basis == ("太阳在子、太阴在寅夹命（丑），命宫不坐空亡，"
+                       "见吉星天魁")
+
+
+def test_xingqiu_jiayin_ming_and_shen():
+    # 天刑＝酉起正月顺至生月，临命唯巳时、临身唯未时（安星诀推演）
+    m = _by_id(_matches(datetime(1950, 1, 10, 10)))["ziwei:1:ju:gui:15"]
+    assert m.name == "刑囚夹印"
+    assert m.basis == "天刑与廉贞（囚）同临命宫（未）"
+    m = _by_id(_matches(datetime(1950, 3, 2, 14)))["ziwei:1:ju:gui:15"]
+    assert m.basis == "天刑与廉贞（囚）同临身宫（酉）"
+
+
+def test_shengbufengshi_lianzheng_on_kongwang():
+    m = _by_id(_matches(datetime(1950, 2, 5, 8)))["ziwei:1:ju:pinjian:1"]
+    assert m.name == "生不逢时"
+    assert m.basis == "命宫（酉）坐截路空亡，廉贞守命"
+
+
+def test_lufeng_liangsha():
+    m = _by_id(_matches(datetime(1956, 2, 12, 12)))["ziwei:1:ju:pinjian:2"]
+    assert m.basis == ("禄存之宫（巳（子女宫））坐截路空亡、旬中空亡，"
+                       "又逢地空、地劫")
+
+
+def test_maluo_kongwang():
+    m = _by_id(_matches(datetime(1951, 2, 11, 0)))["ziwei:1:ju:pinjian:3"]
+    assert m.basis == "天马之宫（巳（田宅宫））落截路空亡"
+
+
+def test_yinyin_gongshen_structurally_never_fires():
+    # 荫印拱身「身临田宅」：命身支序恒差偶数（安身命例），身宫只落
+    # 命、妻妾、财帛、迁移、官禄、福德六宫，永不临田宅——照诀转码，
+    # 不合则不出
+    from tianwen.ziwei.chart import ming_shen
+    for month in range(1, 13):
+        for hz in range(12):
+            ming, shen = ming_shen(month, hz)
+            assert (ming - shen) % 2 == 0
 
 
 def test_selection_adds_ju_readings():

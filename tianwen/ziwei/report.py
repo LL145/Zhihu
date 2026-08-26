@@ -40,13 +40,18 @@ def _star_label(s):
     return lbl
 
 
-def _cell_lines(palace):
+_KONG_ABBR = {"截路空亡": "截空", "旬中空亡": "旬空"}
+
+
+def _cell_lines(palace, kong_marks=()):
     labels = [_star_label(s) for s in palace.stars]
     line1 = " ".join(labels[:2])
     line2 = " ".join(labels[2:5]) + ("…" if len(labels) > 5 else "")
     name = palace.name + ("·身" if palace.is_body else "")
     line3 = f"{name} {palace.gz}"
     line4 = f"限{palace.daxian[0]}-{palace.daxian[1]}"
+    if kong_marks:
+        line4 += " " + " ".join(_KONG_ABBR[m] for m in kong_marks)
     return [line1, line2, line3, line4]
 
 
@@ -78,7 +83,7 @@ def render_chart(chart):
                         c = center[(row_i - 1) * _CELL_H + k]
                         lines[k] += "|" + _pad(c, _CELL_W * 2 + 1)
                 continue
-            cell = _cell_lines(by_branch[br])
+            cell = _cell_lines(by_branch[br], chart.kong_marks(br))
             for k in range(_CELL_H):
                 lines[k] += "|" + _pad(" " + cell[k], _CELL_W)
         out.extend(l + "|" for l in lines)
@@ -113,5 +118,9 @@ def render_repro(chart):
                "分歧点或有出入）：")
     for c in chart.conventions:
         out.append(f"    - {c}")
+    out.append(f"  空亡：截路空亡在{chart.jielu[0]}{chart.jielu[1]}"
+               f"（《安截路空亡诀》论本生年干），旬中空亡在"
+               f"{chart.xunkong[0]}{chart.xunkong[1]}（《安旬中空亡诀》"
+               "论本生年干支所在之旬）")
     out.append("  安星规则均出《紫微斗数全书·卷二》安星诸诀，逐条注于源码。")
     return "\n".join(out)

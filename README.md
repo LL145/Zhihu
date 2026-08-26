@@ -229,7 +229,8 @@ tianwen/
                  追问，GUI 复用；ALGORITHM.md）
   gui.py         图形界面（Tkinter 标准库，打包为 tianwen-gui.exe）
   ziwei/         紫微命引擎（v2）：
-    chart.py       排盘（安星诀逐条代码化，含小限太岁；流派约定显式选定）
+    chart.py       排盘（安星诀逐条代码化，含小限太岁、天刑天姚与
+                   截路/旬中空亡；流派约定显式选定）
     brightness.py  《全书·卷二》庙陷表逐格转录
     knowledge.py   紫微库查表（data/ziwei.json；格诀查表与书桌召回）
     selection.py   断语选取 + 确定性结论（庙陷定强弱、大限论定顺逆；
@@ -260,7 +261,7 @@ tools/
                               火珠林、黄金策；v4 起卦引擎之典据先行）
   import_unihan_strokes.py    从 Unicode 官方 Unihan 导入汉字笔画表（字占用）
   gen_ziwei_fixtures.py       以 py-iztro 生成排盘命例回归集（开发机用）
-tests/           263 项测试：起卦确定性（含问语起卦）、占法七情形、
+tests/           271 项测试：起卦确定性（含问语起卦）、占法七情形、
                  断辞映射、问事分类、
                  注疏与文言挂载、说卦体用取象、占章按类附取、藏书检索、
                  引文校验（含主断唯一）、LLM 重试与追问、单一模式路由与

@@ -82,7 +82,10 @@ def _chart_summary(chart):
         stars = "、".join(
             s.name + (s.brightness or "")
             + (f"化{s.sihua}" if s.sihua else "") for s in p.stars) or "（无星）"
-        lines.append(f"{p.name}（{p.gz}，限{p.daxian[0]}-{p.daxian[1]}）：{stars}")
+        kong = chart.kong_marks(p.branch)
+        tail = f"；{'、'.join(kong)}" if kong else ""
+        lines.append(f"{p.name}（{p.gz}，限{p.daxian[0]}-{p.daxian[1]}）："
+                     f"{stars}{tail}")
     return lines
 
 
