@@ -45,8 +45,9 @@ def test_commentary_lookup():
 
 
 def test_kb_xiaoxiang_fix_regression():
-    # 导入订正：乾九二小象「见龙再田」→「见龙在田」
+    # 导入订正：乾九二小象与爻辞「见龙再田」→「见龙在田」
     assert "见龙在田" in kb.citation("xiaoxiang:1:2")["text"]
+    assert "见龙在田" in kb.citation("zhouyi:1:yao:2")["text"]
 
 
 def test_commentary_in_allowed_texts():

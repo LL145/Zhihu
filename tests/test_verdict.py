@@ -65,6 +65,24 @@ def test_duiju_conditional():
     # 蒙上九「不利为寇，利御寇」、蹇卦辞「利西南，不利东北」
     assert _decide("zhouyi:4:yao:6")["verdict"] == "条件"
     assert _decide("zhouyi:39:guaci")["verdict"] == "条件"
+    # 与无咎类并见同为对举：临六三「无攸利；既忧之，无咎」
+    assert _decide("zhouyi:19:yao:3")["verdict"] == "条件"
+
+
+def test_variant_tokens():
+    # 否定式变体整词归并，不得拆出孤立负字：
+    # 小畜初九「何其咎？吉」→ 吉；复初九「无祗悔，元吉」→ 吉；
+    # 姤九三「厉，无大咎」→ 谨（厉＋无咎类）
+    assert _decide("zhouyi:9:yao:1")["verdict"] == "吉"
+    assert _decide("zhouyi:24:yao:1")["verdict"] == "吉"
+    assert _decide("zhouyi:44:yao:3")["verdict"] == "谨"
+
+
+def test_hengyu_is_verb():
+    # 「王用亨于西山」之亨为享祀动辞，消耗不计：随上六 → 未著断辞；
+    # 升六四「王用亨于岐山，吉无咎」断辞另出 → 仍吉
+    assert _decide("zhouyi:17:yao:6")["verdict"] == "未著断辞"
+    assert _decide("zhouyi:46:yao:4")["verdict"] == "吉"
 
 
 def test_feijiu_as_wujiu():
@@ -94,8 +112,12 @@ def test_all_384_yao_classifiable():
     assert set(counts) <= {"吉", "条件", "凶", "危", "谨", "忌", "平", "未著断辞"}
 
 
-def test_unaudited_flag():
-    assert _decide("zhouyi:1:guaci")["audited"] is False
+def test_audited_flags():
+    # 全量审定确认名单（data/verdict_audit.json）：机取维持，audited 置真
+    v = _decide("zhouyi:1:guaci")
+    assert v["audited"] is True and "全量审定" in v["basis"]
+    # 名单与 overrides 之外（如新增经文）仍如实标待审
+    assert verdict.decide("x:test", "元吉").get("audited") is False
 
 
 def test_override(tmp_path, monkeypatch):

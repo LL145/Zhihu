@@ -5,7 +5,8 @@
   "proofread": false,
   "patched_entries": [
    "tuan:iching__32",
-   "xiang:iching__1_2(订正 见龙再田→见龙在田)"
+   "xiang:iching__1_2(订正 见龙再田→见龙在田)",
+   "yao:1_2(订正 见龙再田→见龙在田)"
   ],
   "note": "文本待依通行本人工校对；校对前引文核对仅保证与本库自身逐字一致。"
  },
@@ -41,7 +42,7 @@
      "pos": 2,
      "name": "九二",
      "yang": true,
-     "text": "见龙再田，利见大人。",
+     "text": "见龙在田，利见大人。",
      "xiaoxiang": "“见龙在田”，德施普也。"
     },
     {

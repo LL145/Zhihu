@@ -29,8 +29,16 @@ PATCHES = {
 
 # 源仓库错字订正（依通行本，错文必须在场方可替换）。key: (词典名, 条目key)
 FIXES = {
-    # 乾九二小象「见龙再田」：通行本作「在田」，且同卦爻辞即「见龙在田」
+    # 乾九二小象「见龙再田」：通行本作「在田」（源数据爻辞与小象均误作
+    # 「再田」，爻辞订正见 YAO_FIXES）
     ("xiang", "iching__1_2"): ("见龙再田", "见龙在田"),
+}
+
+# 爻辞错字订正（iching.json 各爻 scripture）。key: (卦id, 爻位)
+YAO_FIXES = {
+    # 乾九二爻辞「见龙再田」：通行本作「在田」（2026-08 全量审定所见——
+    # 此前 FIXES 只修了小象，爻辞漏修）
+    (1, 2): ("见龙再田", "见龙在田"),
 }
 
 
@@ -57,6 +65,16 @@ def main() -> None:
         assert wrong in target[key], f"订正落空（源已改？）: {dict_name}:{key} {wrong}"
         target[key] = target[key].replace(wrong, right)
         patched.append(f"{dict_name}:{key}(订正 {wrong}→{right})")
+    for (hid_fix, pos_fix), (wrong, right) in YAO_FIXES.items():
+        for h in iching:
+            if h["id"] != hid_fix:
+                continue
+            for ln in h["lines"]:
+                if ln["id"] == pos_fix:
+                    assert wrong in ln["scripture"], \
+                        f"订正落空（源已改？）: 卦{hid_fix}爻{pos_fix} {wrong}"
+                    ln["scripture"] = ln["scripture"].replace(wrong, right)
+                    patched.append(f"yao:{hid_fix}_{pos_fix}(订正 {wrong}→{right})")
 
     assert len(iching) == 64, f"卦数异常: {len(iching)}"
     assert len(xiang) == 450, f"象传条数异常: {len(xiang)}（应为 64 大象 + 386 小象）"
