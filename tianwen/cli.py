@@ -3,11 +3,14 @@
 用法示例：
     python -m tianwen -q "近期换工作是否合适" --name 李明 \
         --birth 2000-09-14 --birth-time 午 --gender 男
+    python -m tianwen -q "我是什么命" --birth 1992-10-08 --birth-time 酉 \
+        --gender 男 --birthplace 116.41,39.90
     python -m tianwen -q "……" --when "2026-08-24 15:30" --no-llm
 
-输入固定五项：问什么＋姓名＋生日＋出生时辰＋性别。三占同起（时间卦、
-姓名卦、紫微盘），吉凶只从主断一处出；输入不全只减少参照（如实说明），
-不改变流程。输出结论先行；--full 附卦画与盘面。
+输入固定五项：问什么＋姓名＋生日＋出生时辰＋性别（另有出生地经纬度
+可缺，供西洋本命盘上升与分府）。三占同起（时间卦、姓名卦、紫微盘），
+吉凶只从主断一处出；输入不全只减少参照（如实说明），不改变流程。
+输出结论先行；--full 附卦画与盘面。
 """
 
 import argparse
@@ -55,6 +58,18 @@ def _parse_birth_hour(s):
     raise SystemExit(f"无法解析出生时辰: {s}（时辰名如「午」，或钟点如 11:30）")
 
 
+def _parse_birthplace(s):
+    """「东经,北纬」（度，西经南纬取负）→ (lon, lat)。空串返回 None。"""
+    s = (s or "").strip()
+    if not s:
+        return None
+    m = re.fullmatch(r"(-?\d+(?:\.\d+)?)\s*[,，]\s*(-?\d+(?:\.\d+)?)", s)
+    if not m:
+        raise SystemExit(f"无法解析出生地: {s}（格式: 东经,北纬 如 116.41,39.90；"
+                         "西经南纬取负）")
+    return float(m.group(1)), float(m.group(2))
+
+
 def _is_tty():
     try:
         return sys.stdin is not None and sys.stdin.isatty()
@@ -70,12 +85,13 @@ def _prompt(label):
 
 
 def _resolve_inputs(args, interactive):
-    """补齐五项输入 → (name, birth_dt|None, gender|None)。
+    """补齐输入 → (name, birth_dt|None, gender|None, birth_place|None)。
 
     交互模式下逐项询问，回车跳过（跳过只减少参照，不碍起卦）。
     """
     name = (args.name or "").strip()
     birth, btime, gender = args.birth, args.birth_time, args.gender
+    place = args.birthplace
     if interactive and _is_tty():
         if not name:
             name = _prompt("  姓名（两三字，起姓名卦用；回车跳过）：")
@@ -86,11 +102,14 @@ def _resolve_inputs(args, interactive):
                 btime = btime or _prompt("  出生时辰（时辰名如「午」，或钟点如 11:30）：")
             if birth and btime:
                 gender = gender or _prompt("  性别（男/女）：")
+        if birth and btime and gender and not place:
+            place = _prompt("  出生地经纬度（东经,北纬 如 116.41,39.90，供西洋"
+                            "本命盘上升与分府；回车跳过）：")
     if not (birth and btime and gender):
-        return name, None, None
+        return name, None, None, None
     y, m, d = _parse_birth_date(birth)
     hour = _parse_birth_hour(btime)   # 时辰由整点小时唯一确定，分钟不参与
-    return name, datetime(y, m, d, hour), gender
+    return name, datetime(y, m, d, hour), gender, _parse_birthplace(place)
 
 
 def _followup_loop(session, cfg):
@@ -135,6 +154,9 @@ def main(argv=None):
     p.add_argument("--birth", help="出生日期（公历 YYYY-MM-DD，紫微排盘用；可缺）")
     p.add_argument("--birth-time", help="出生时辰（时辰名如「午」，或钟点如 11:30；缺则无法排盘）")
     p.add_argument("--gender", choices=["男", "女"], help="性别（大限顺逆、男女命诀用）")
+    p.add_argument("--birthplace",
+                   help="出生地经纬度「东经,北纬」（度，如 116.41,39.90；西经南纬"
+                        "取负；可缺——供西洋本命盘上升与分府，缺则不算）")
     p.add_argument("--when", help="指定起卦/论限时刻 YYYY-MM-DD HH:MM，按北京时间"
                                   "（默认取当前时刻并自动换算为北京时间；用于复现）")
     p.add_argument("--topic", choices=[name for _k, name in topic.CATEGORIES],
@@ -168,10 +190,15 @@ def main(argv=None):
         print(e)
         return 0
 
-    name, birth_dt, gender = _resolve_inputs(args, interactive)
+    name, birth_dt, gender, birth_place = _resolve_inputs(args, interactive)
     when = _parse_when(args.when) if args.when else lunar.now_beijing()
-    s = service.prepare(question, name=name, birth_dt=birth_dt, gender=gender,
-                        when=when, tp=tp)
+    try:
+        s = service.prepare(question, name=name, birth_dt=birth_dt,
+                            gender=gender, when=when, tp=tp,
+                            birth_place=birth_place)
+    except ValueError as e:
+        print(e)
+        return 1
 
     print()
     if args.no_llm or not cfg["api_key"]:

@@ -40,6 +40,23 @@ def _parse_birth(year, month, day, shichen, gender):
         raise ValueError(f"公历中无此日期：{year}年{month}月{day}日") from None
 
 
+def _parse_place(lon_s, lat_s):
+    """出生地经纬输入 → (东经, 北纬) 或 None（都留空）。只填一项抛 ValueError。
+
+    供西洋本命盘上升与分府；西经、南纬取负值。"""
+    lon_s, lat_s = (lon_s or "").strip(), (lat_s or "").strip()
+    if not lon_s and not lat_s:
+        return None
+    if not (lon_s and lat_s):
+        raise ValueError("出生地经纬度须成对填写（或都留空——"
+                         "留空则不算上升与分府，余皆照常）")
+    try:
+        return float(lon_s), float(lat_s)
+    except ValueError:
+        raise ValueError(f"无法解析出生地经纬度：{lon_s}，{lat_s}"
+                         "（度数，如 116.41 与 39.90；西经南纬取负）") from None
+
+
 class App(ttk.Frame):
     def __init__(self, root):
         super().__init__(root, padding=8)
@@ -105,6 +122,13 @@ class App(ttk.Frame):
                                    state="readonly")
         self.gender.current(0)
         self.gender.pack(side="left")
+        ttk.Label(row2, text="　出生地（可空）东经").pack(side="left")
+        self.place_lon = ttk.Entry(row2, width=7)
+        self.place_lon.pack(side="left")
+        ttk.Label(row2, text="°北纬").pack(side="left")
+        self.place_lat = ttk.Entry(row2, width=6)
+        self.place_lat.pack(side="left")
+        ttk.Label(row2, text="°").pack(side="left")
         ttk.Button(row2, text="设置（API Key）…",
                    command=self.open_settings).pack(side="right")
 
@@ -181,6 +205,7 @@ class App(ttk.Frame):
             birth = _parse_birth(self.birth_y.get(), self.birth_m.get(),
                                  self.birth_d.get(), self.shichen.get(),
                                  self.gender.get())
+            place = _parse_place(self.place_lon.get(), self.place_lat.get())
         except ValueError as e:
             messagebox.showwarning(_TITLE, str(e))
             return
@@ -196,10 +221,11 @@ class App(ttk.Frame):
         self._set_status("推演中（判类·起卦/排盘·选文）……")
         threading.Thread(
             target=self._prepare_worker,
-            args=(token, question, name, birth, override, cfg),
+            args=(token, question, name, birth, place, override, cfg),
             daemon=True).start()
 
-    def _prepare_worker(self, token, question, name, birth, override, cfg):
+    def _prepare_worker(self, token, question, name, birth, place, override,
+                        cfg):
         """判类（占者判类→规则回落）与全部确定性步骤在工作线程完成，不卡界面。"""
         try:
             tp = service.resolve_topic(
@@ -208,7 +234,8 @@ class App(ttk.Frame):
             session = service.prepare(
                 question, name=name,
                 birth_dt=birth[0] if birth else None,
-                gender=birth[1] if birth else None, tp=tp)
+                gender=birth[1] if birth else None, tp=tp,
+                birth_place=place)
             self._q.put(("prepared", token, session, cfg))
         except service.RefusalError as e:
             self._q.put(("refused", token, str(e)))

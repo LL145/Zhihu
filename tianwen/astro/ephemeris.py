@@ -1,9 +1,9 @@
 """七曜星历：地心视黄经（date 黄道，真春分），运行时零依赖。
 
-西洋占星本命盘（ALGORITHM.md 步骤 5b）只需七曜（日、月、水、金、火、
+西洋占星本命盘（ALGORITHM.md 步骤 5b）需七曜（日、月、水、金、火、
 木、土——托勒密《占星四书》所论诸曜）落于黄道十二宫（tropical）之位，
-故本模块只算地心视黄经，不算赤道坐标与宫位（上升与宫位须出生地，
-输入无出生地，缓用）。
+故本模块算地心视黄经；另供格林尼治视恒星时与真黄赤交角
+（sidereal_obliquity——上升与中天之算用，见 natal.py，须出生地输入）。
 
 数据与算法（凭证所引，逐项可核）：
 
@@ -117,6 +117,43 @@ def _nutation_lon(tc):
     dpsi = (-17.20 * math.sin(rad(omega)) - 1.32 * math.sin(rad(2 * lsun))
             - 0.23 * math.sin(rad(2 * lmoon)) + 0.21 * math.sin(rad(2 * omega)))
     return dpsi / 3600.0
+
+
+def _nutation_obl(tc):
+    """交角章动 Δε（度）。IAU 1980 主四项；tc 为儒略世纪数（TT）。"""
+    rad = math.radians
+    omega = 125.04452 - 1934.136261 * tc
+    lsun = 280.4665 + 36000.7698 * tc
+    lmoon = 218.3165 + 481267.8813 * tc
+    deps = (9.20 * math.cos(rad(omega)) + 0.57 * math.cos(rad(2 * lsun))
+            + 0.10 * math.cos(rad(2 * lmoon)) - 0.09 * math.cos(rad(2 * omega)))
+    return deps / 3600.0
+
+
+def true_obliquity(tc):
+    """真黄赤交角 ε（度）＝平交角（Meeus 22.2）＋Δε。tc 儒略世纪（TT）。"""
+    eps0 = (23.0 + 26.0 / 60.0 + 21.448 / 3600.0
+            - (46.8150 * tc + 0.00059 * tc ** 2 - 0.001813 * tc ** 3) / 3600.0)
+    return eps0 + _nutation_obl(tc)
+
+
+def sidereal_obliquity(dt_utc):
+    """UTC 时刻 → (格林尼治视恒星时 GAST（度）, 真黄赤交角 ε（度）)。
+
+    GMST 按 Meeus 12.4（UT 世纪数），加 Δψ·cosε 得视恒星时；上升与
+    中天之算（natal.py）由此起步。章动与交角取 TT 世纪数（经 ΔT），
+    与 apparent_longitudes 同一约定。
+    """
+    jd = julian_day(dt_utc)
+    du = jd - 2451545.0
+    tu = du / 36525.0
+    gmst = (280.46061837 + 360.98564736629 * du
+            + 0.000387933 * tu ** 2 - tu ** 3 / 38710000.0) % 360.0
+    dt_s = delta_t(dt_utc.year + (dt_utc.month - 0.5) / 12)
+    tc = (jd + dt_s / 86400.0 - 2451545.0) / 36525.0
+    eps = true_obliquity(tc)
+    gast = (gmst + _nutation_lon(tc) * math.cos(math.radians(eps))) % 360.0
+    return gast, eps
 
 
 def moon_longitude_mean(tc):

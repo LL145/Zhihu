@@ -29,6 +29,18 @@ def _birth_dt(p):
     return datetime(y, m, d, ZHI.index(shichen) * 2)   # 时辰由整点小时唯一确定
 
 
+def _birth_place(p):
+    """出生地经纬（可缺，供西洋盘上升与分府）；只填一项如实报错。"""
+    lon = str(p.get("lon") or "").strip()
+    lat = str(p.get("lat") or "").strip()
+    if not lon and not lat:
+        return None
+    if not (lon and lat):
+        raise ValueError("出生地经纬度须成对填写（或都留空——"
+                         "留空则不算上升与分府，余皆照常）")
+    return float(lon), float(lat)
+
+
 def _when(p):
     w = (p.get("when") or "").strip()
     if not w:
@@ -109,7 +121,8 @@ def run(payload):
         s = service.prepare(p.get("question"), name=p.get("name") or "",
                             birth_dt=_birth_dt(p),
                             gender=p.get("gender") or None,
-                            when=_when(p), tp=tp)
+                            when=_when(p), tp=tp,
+                            birth_place=_birth_place(p))
     except service.RefusalError as e:
         return json.dumps({"kind": "refusal", "text": str(e)})
     except ValueError as e:

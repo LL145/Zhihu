@@ -84,6 +84,17 @@ def test_viz_structured_data(app):
     assert d["viz"]["chart"]["tag"] == "主断"
 
 
+def test_birthplace_pair_and_ascendant(app):
+    # 出生地成对填写 → 命理主断凭证含上升中天与出生地
+    d = _run(app, question="我的命格如何", noLLM=True,
+             shichen="辰", lon="116.41", lat="39.90")
+    assert d["kind"] == "plain"
+    assert "出生地" in d["text"] and "上升中天" in d["text"]
+    # 只填一项：如实报错，不猜另一半
+    d = _run(app, question="我的命格如何", noLLM=True, lon="116.41")
+    assert d["kind"] == "error" and "成对" in d["text"]
+
+
 def test_followup_requires_interpret(app):
     _run(app)
     d = json.loads(app.followup("再细说"))

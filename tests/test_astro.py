@@ -190,6 +190,124 @@ def test_validator_latin_channel():
     assert any("主断侧" in e for e in validate(j, allowed, primary))
 
 
+# ── 第二期：上升与中天、整宫分府（有出生地时） ─────────────────────
+
+def test_sidereal_time_vs_pyephem():
+    ephem = pytest.importorskip("ephem")
+    dt = datetime(1905, 3, 4, 7, 30)
+    while dt.year < 2100:
+        gast, _eps = ephemeris.sidereal_obliquity(dt)
+        obs = ephem.Observer()
+        obs.lon, obs.lat = "0", "0"
+        obs.date, obs.pressure = ephem.Date(dt), 0
+        ref = math.degrees(float(obs.sidereal_time()))
+        diff = abs((gast - ref + 180.0) % 360.0 - 180.0) * 3600.0
+        assert diff <= 5.0, f"GAST @ {dt}: 偏差 {diff:.2f}″"
+        dt += timedelta(days=2777, hours=13)
+
+
+def test_angles_on_horizon_and_meridian_vs_pyephem():
+    # 上升点定义即黄道与当地东方地平之交点：其高度须≈0 且尚在升侧
+    # （时角为负）；中天在子午圈上（时角≈0）。以 pyephem 的恒星时与
+    # 黄赤坐标变换独立验证 natal._angles_at 之公式，不与其共享推导。
+    ephem = pytest.importorskip("ephem")
+    cases = [(datetime(1992, 10, 8, 10), 116.41, 39.90),
+             (datetime(2000, 9, 14, 0), 113.26, 23.13),
+             (datetime(1950, 1, 1, 0), 87.62, 43.83),
+             (datetime(2030, 6, 21, 18), -70.65, -33.45),   # 南半球西经
+             (datetime(1980, 12, 25, 12), 121.47, 31.23)]
+    for utc, lon, lat in cases:
+        asc, mc, _ramc, _eps = natal._angles_at(utc, lon, lat)
+        d = ephem.Date(utc)
+        obs = ephem.Observer()
+        obs.lon, obs.lat = str(lon), str(lat)
+        obs.date, obs.pressure = d, 0
+        lst = math.degrees(float(obs.sidereal_time()))
+
+        def _radec(lam):
+            eq = ephem.Equatorial(
+                ephem.Ecliptic(math.radians(lam), 0.0, epoch=d), epoch=d)
+            return math.degrees(float(eq.ra)), math.degrees(float(eq.dec))
+
+        ra, dec = _radec(asc)
+        h = (lst - ra + 180.0) % 360.0 - 180.0
+        alt = math.degrees(math.asin(
+            math.sin(math.radians(lat)) * math.sin(math.radians(dec))
+            + math.cos(math.radians(lat)) * math.cos(math.radians(dec))
+            * math.cos(math.radians(h))))
+        assert abs(alt) * 3600.0 <= 60.0, f"asc @ {utc}: 高度 {alt * 3600:.0f}″"
+        assert h < 0, f"asc @ {utc}: 时角 {h:.2f}°（应在升侧）"
+        ra_mc, _dec_mc = _radec(mc)
+        h_mc = (lst - ra_mc + 180.0) % 360.0 - 180.0
+        assert abs(h_mc) * 3600.0 <= 60.0, f"mc @ {utc}: 时角 {h_mc:.4f}°"
+
+
+def test_natal_place_houses_and_strengths():
+    # 2000-09-14 辰时·北京：时辰两端上升同在天秤（慢升诸宫）→ 分府可出
+    ch = natal.cast(datetime(2000, 9, 14, 8), place=(116.41, 39.90))
+    a = ch.angles
+    assert not a.asc_uncertain and natal.SIGNS[a.asc_sign] == "天秤"
+    assert a.mc_uncertain          # 中天两端跨宫——时辰精度下如实存疑
+    by = {k: (h, s) for k, h, s in a.houses}
+    assert by["venus"] == (1, "轴宫")   # 金星在天秤，上升宫即第一府
+    assert by["mars"] == (11, "续宫")
+    assert by["sun"] == (12, "倾宫")
+    for p in ch.placements:            # 整宫算式自洽：府序＝宫距＋1
+        assert by[p.key][0] == (p.sign_idx - a.asc_sign) % 12 + 1
+    lines = natal.facts_lines(ch)
+    assert any("上升：天秤宫" in ln for ln in lines)
+    assert any("金星第一府（轴宫）" in ln for ln in lines)
+    assert any("中天落宫存疑" in ln for ln in lines)
+    assert "出生地" in ch.repro and "上升中天" in ch.repro
+    assert "机断约定" in ch.repro["分府"]
+    same = natal.cast(datetime(2000, 9, 14, 8), place=(116.41, 39.90))
+    assert same.repro == ch.repro      # 同输入必同输出
+
+
+def test_asc_uncertain_honesty():
+    # 酉时例：上升时辰内约行 30°，两端跨宫（快升诸宫尤甚）→ 存疑、分府不出
+    ch = natal.cast(datetime(1992, 10, 8, 18), place=(116.41, 39.90))
+    a = ch.angles
+    assert a.asc_uncertain and a.houses is None
+    assert any("上升落宫存疑" in ln and "勿引" in ln
+               for ln in natal.facts_lines(ch))
+    assert "分府不出" in ch.repro["分府"]
+    assert "tetra:3:3" in ch.repro["轴点时辰漂移"]
+
+
+def test_place_validation():
+    with pytest.raises(ValueError):    # 极圈：上升无恒常定义，如实拒算
+        natal.cast(datetime(2000, 9, 14, 8), place=(25.0, 78.2))
+    with pytest.raises(ValueError):    # 经度超界
+        natal.cast(datetime(2000, 9, 14, 8), place=(190.0, 30.0))
+    ch = natal.cast(datetime(2000, 9, 14, 8))    # 无出生地：行为不变
+    assert ch.angles is None
+    assert "出生地未填" in ch.repro["约定"]
+    assert "出生地" not in ch.repro
+
+
+def test_place_doctrine_phrases():
+    # 轴续倾强弱与中天主职业（tetra:3:4）、生时难准（tetra:3:3）逐句对照
+    t34 = kb.citation("tetra:3:4")["text"]
+    for phrase in ("transiting an angle or succedent house",
+                   "especially those of the ascendant, or of the mid-heaven",
+                   "cadent from the angles",
+                   "the place of the mid-heaven is adapted to questions "
+                   "comprised under the head of employment"):
+        assert phrase in t34, phrase
+    assert "uncertainty as to the precise time of birth" \
+        in kb.citation("tetra:3:3")["text"]
+
+
+def test_cli_birthplace_parse():
+    from tianwen import cli
+    assert cli._parse_birthplace("116.41,39.90") == (116.41, 39.90)
+    assert cli._parse_birthplace("116.41，39.90") == (116.41, 39.90)
+    assert cli._parse_birthplace(" ") is None
+    with pytest.raises(SystemExit):
+        cli._parse_birthplace("北京")
+
+
 # ── 接线 ───────────────────────────────────────────────────────────
 
 def test_astro_context_wiring():
@@ -207,6 +325,28 @@ def test_astro_context_wiring():
     blk2 = [b for b in s2.contexts if "本命盘" in b.title][0]
     ids2 = [cid for cid, _s, _t in blk2.items]
     assert "tetra:4:10" in ids2 and "tetra:4:2" in ids2
+
+
+def test_astro_place_wiring_and_prompt_nudge():
+    s = service.prepare("我是什么命", birth_dt=datetime(2000, 9, 14, 8),
+                        gender="男", when=datetime(2026, 8, 24, 15, 30),
+                        birth_place=(116.41, 39.90))
+    blk = [b for b in s.contexts if "本命盘" in b.title][0]
+    ids = [cid for cid, _s, _t in blk.items]
+    assert ids[:6] == ["tetra:1:5", "tetra:1:16", "tetra:1:20", "tetra:1:22",
+                       "tetra:3:4", "tetra:3:3"]
+    assert any("上升：天秤宫" in n for n in blk.notes)
+    assert "上升天秤宫" in s.overview_text()
+    assert "出生地" in s.repro_text() and "上升中天" in s.repro_text()
+    # 无出生地：不附 3:4/3:3，第一期行为不变
+    s2 = _chart_session("我是什么命")
+    ids2 = [cid for cid, _s, _t in
+            [b for b in s2.contexts if "本命盘" in b.title][0].items]
+    assert "tetra:3:4" not in ids2 and "tetra:3:3" not in ids2
+    # 提示词第 5 条明言宜参及西洋盘盘面事实（补「结构在而修辞不见」之缺）
+    assert "西洋本命盘" in zllm._SYSTEM
+    assert "至少参及一次" in zllm._SYSTEM
+    assert "存疑" in zllm._SYSTEM and "勿引" in zllm._SYSTEM
 
 
 def test_astro_absent_for_event_primary():

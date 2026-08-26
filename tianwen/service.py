@@ -1,12 +1,14 @@
 """单一模式流水线门面（ALGORITHM.md）。
 
-输入固定五项：问什么＋姓名＋生日＋出生时辰＋性别。四样同起（问语卦、
-时间卦、姓名卦、紫微盘），全部确定性、无随机数；吉凶只从主断一处出
+输入固定五项：问什么＋姓名＋生日＋出生时辰＋性别（另有出生地经纬度
+可缺）。四样同起（问语卦、时间卦、姓名卦、紫微盘），全部确定性、
+无随机数；吉凶只从主断一处出
 （问具体事→问语卦[书写来意，以其字占之]，问命格/时运且有盘→紫微盘），
 时间卦恒作当下之势之参，其余占法只以语境块
 （ContextBlock）进入解读层——结构上杜绝自相矛盾（ALGORITHM.md 五）。
-命理主断时另排西洋本命盘（astro/natal.py，第一期）：同为生辰确定，
-只作参照语境入解读（《占星四书》英译原文可引不可断）。
+命理主断时另排西洋本命盘（astro/natal.py）：同为生辰确定，只作参照
+语境入解读（《占星四书》英译原文可引不可断）；有出生地并排上升中天
+与整宫分府，时辰两端跨宫则如实存疑。
 
 输入不全只减少参照，不改变流程形状：姓名不合书例则不起姓名卦并说明
 缘由，生辰不全则无盘。所有确定性步骤在构造时同步完成；interpret /
@@ -59,10 +61,12 @@ def resolve_topic(question, cfg=None, override=None):
 
 
 def prepare(question, *, name="", birth_dt=None, gender=None, when=None,
-            tp=None):
+            tp=None, birth_place=None):
     """完成全部确定性步骤，返回单一模式会话对象（ALGORITHM.md 三）。
 
     tp 可传入 resolve_topic 的结果（判类三级）；缺省按关键词规则判类。
+    birth_place 为出生地 (东经, 北纬)（度，可缺）——只供西洋本命盘
+    上升与分府（步骤 5b），缺则不算、不以默认地冒充。
     红线问题抛 RefusalError。
     """
     question = (question or "").strip()
@@ -73,13 +77,14 @@ def prepare(question, *, name="", birth_dt=None, gender=None, when=None,
         raise RefusalError(refusal)
     tp = tp or topic.classify(question)
     when = when or lunar.now_beijing()
-    return Session(question, tp, when, name, birth_dt, gender)
+    return Session(question, tp, when, name, birth_dt, gender, birth_place)
 
 
 class Session:
     """单一模式会话：四样同起，主断唯一，语境合参。"""
 
-    def __init__(self, question, tp, when, name, birth_dt, gender):
+    def __init__(self, question, tp, when, name, birth_dt, gender,
+                 birth_place=None):
         self.question = question
         self.tp = tp
         self.when = when
@@ -125,9 +130,9 @@ class Session:
         self.astro = None
         self.aspect = zselection.detect_aspect(question)[0]
         if self.primary == "chart":
-            # 西洋本命盘（第一期）：命理主断时另排，只入解读语境
-            # （可引不可断，ALGORITHM.md 步骤 5b/10）
-            self.astro = astro_natal.cast(birth_dt)
+            # 西洋本命盘：命理主断时另排，只入解读语境（可引不可断，
+            # ALGORITHM.md 步骤 5b/10）；出生地可缺——缺则无上升分府
+            self.astro = astro_natal.cast(birth_dt, place=birth_place)
         if self.primary == "event":
             ben = self.kb.id_of(self.event_cast.ben_binary)
             zhi = self.kb.id_of(self.event_cast.zhi_binary)
@@ -250,12 +255,15 @@ class Session:
                             notes=notes, items=items)
 
     def _astro_block(self):
-        """西洋本命盘（第一期）：盘面事实＋《占星四书》总纲章与论题章
-        （恒附 1:5/1:16/1:20/1:22，按判类与题材附卷三卷四之章；寿夭
-        疾病生死诸章属红线主题不附）。引文约定：底本为英译公版，引用
-        须逐字照录英文原文，中译只作解释性转述（校验器拉丁通道强制）。"""
+        """西洋本命盘：盘面事实＋《占星四书》总纲章与论题章（恒附
+        1:5/1:16/1:20/1:22，按判类与题材附卷三卷四之章；排了上升分府
+        另附 3:4 轴续倾强弱、3:3 生时难准之义；寿夭疾病生死诸章属红线
+        主题不附）。引文约定：底本为英译公版，引用须逐字照录英文原文，
+        中译只作解释性转述（校验器拉丁通道强制）。"""
         items = []
-        for cid in astro_natal.context_chapters(self.tp.key, self.aspect):
+        for cid in astro_natal.context_chapters(
+                self.tp.key, self.aspect,
+                with_place=self.astro.angles is not None):
             c = self.kb.citation(f"tetra:{cid}")
             items.append((c["cite_id"], c["source"], c["text"]))
         notes = (["由生辰确定性排得（凭证详后），异邦占法只作参照语境，"
@@ -320,10 +328,17 @@ class Session:
             got = "、".join(f"{n}{s}" for n, s, _sign in self.astro.dignities) \
                 or "无得位"
             doubt = "（落宫存疑，详凭证）" if self.astro.moon_uncertain else ""
+            ang = self.astro.angles
+            if ang is None:
+                asc = ""
+            elif ang.asc_uncertain:
+                asc = "、上升存疑（时辰两端跨宫，详凭证）"
+            else:
+                asc = f"、上升{astro_natal.sign_name(ang.asc_sign)}"
             lines.append(f"  西洋本命盘（参·托勒密占星）：太阳"
                          f"{astro_natal.sign_name(sun.sign_idx)}、月亮"
-                         f"{astro_natal.sign_name(moon.sign_idx)}{doubt}，"
-                         f"{got}")
+                         f"{astro_natal.sign_name(moon.sign_idx)}{doubt}"
+                         f"{asc}，{got}")
         audited = "人工审定" if self.vd["audited"] else "自动提取，待人工审定"
         lines.append(f"  定例断辞（主断侧机断，{audited}）："
                      f"【{self.vd['verdict']}】{self.vd['action']}")

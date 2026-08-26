@@ -151,6 +151,18 @@
           <select id="shichen"></select>
         </div>
       </div>
+      <div class="row">
+        <div>
+          <label for="lon">出生地东经°（可缺；西经取负）</label>
+          <input type="number" id="lon" step="any" min="-180" max="180"
+                 placeholder="如 116.41——供西洋盘上升与分府">
+        </div>
+        <div>
+          <label for="lat">出生地北纬°（南纬取负）</label>
+          <input type="number" id="lat" step="any" min="-90" max="90"
+                 placeholder="如 39.90">
+        </div>
+      </div>
       <div class="checks">
         <label><input type="checkbox" id="full">附卦画与十二宫盘面</label>
         <label><input type="checkbox" id="nollm">不调大模型（仅定例断辞）</label>
@@ -555,6 +567,8 @@ $("form").addEventListener("submit", (ev) => {
     birth: $("birth").value,
     shichen: $("shichen").value,
     gender: $("gender").value,
+    lon: $("lon").value,
+    lat: $("lat").value,
     full: $("full").checked,
     noLLM: $("nollm").checked,
     apiKey, model,
