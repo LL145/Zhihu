@@ -161,6 +161,22 @@ def test_chart_desk_context_and_repro():
     assert not s2.desk and not [b for b in s2.contexts if "书桌" in b.title]
 
 
+def test_chart_desk_second_phase_palace_term():
+    # 书桌二期：问涉具体题材时，所涉之宫名并入召回（按宫/类别）
+    s = _full(question="我今年财运如何")
+    assert s.primary == "chart"
+    assert s.sel.desk_terms == ("财帛",)
+    assert "财帛" in {q for q, _h, _t in s.desk}
+    _q, hits, total = next(x for x in s.desk if x[0] == "财帛")
+    assert total >= 1 and all("财帛" in ln for _cid, ln in hits)
+    repro = s.repro_text()
+    assert "所涉之宫财帛：命中" in repro
+    assert "并所涉之宫名" in repro
+    # 无题材之问不加宫名查询
+    s2 = _full(question="我今年运势如何")
+    assert getattr(s2.sel, "desk_terms", ()) == ()
+
+
 def test_chart_fortune_liunian_in_evidence():
     # 流年二限（太岁＋小限）如实入所据断语区
     s = _full(question="我今年运势如何")

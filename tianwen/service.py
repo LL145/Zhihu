@@ -212,18 +212,22 @@ class Session:
     _DESK_CAP = 8   # 书桌每星至多召回行数（凭证如实标注）
 
     def _desk_block(self):
-        """书桌（确定性召回层）：按主断宫主星自赋文格诀池机械召回
-        候选断语行入语境（可引不可断，模型池内择引）；召回规则与
-        命中数进凭证（repro_text）。"""
-        self.desk = self.zkb.desk(self.sel.desk_stars, cap=self._DESK_CAP)
+        """书桌（确定性召回层）：按主断宫主星——问涉题材时并所涉之宫名
+        （书桌二期）——自赋文格诀池机械召回候选断语行入语境（可引不可
+        断，模型池内择引）；召回规则与命中数进凭证（repro_text）。"""
+        terms = getattr(self.sel, "desk_terms", ())
+        self.desk = self.zkb.desk(tuple(self.sel.desk_stars) + tuple(terms),
+                                  cap=self._DESK_CAP)
         if not self.desk:
             return None
-        notes = ["候选断语按星名字样自《全书·卷一》赋文诸论、十等论、"
-                 "定诸局机械召回，未必尽合此盘：引用前须对照盘面星曜"
-                 "庙陷宫支，不合者勿引，不得据以立断"]
+        notes = ["候选断语按主断宫主星星名（问涉题材时并所涉之宫名）"
+                 "字样自《全书·卷一》赋文诸论、十等论、定诸局机械召回，"
+                 "未必尽合此盘：引用前须对照盘面星曜庙陷宫支，"
+                 "不合者勿引，不得据以立断"]
         by_cid = {}
         for star, hits, total in self.desk:
-            notes.append(f"{star}：命中 {total} 行"
+            label = f"所涉之宫{star}" if star in terms else star
+            notes.append(f"{label}：命中 {total} 行"
                          + (f"，列前 {len(hits)}" if total > len(hits) else ""))
             for cid, ln in hits:
                 lines = by_cid.setdefault(cid, [])
@@ -320,11 +324,14 @@ class Session:
             out = ["── 书桌召回（确定性） " + "─" * 18]
             out.append("  池：《紫微斗数全书·卷一》赋文诸论、十等论、"
                        "定富贵贫贱杂诸局，逐行")
-            out.append(f"  规则：主断宫主星星名字样命中即收，依库序，"
-                       f"每星至多 {self._DESK_CAP} 行（超额如实标注）；"
-                       "只入解读语境，可引不可断")
+            out.append(f"  规则：主断宫主星星名（问涉题材时并所涉之宫名）"
+                       f"字样命中即收，依库序，每项至多 {self._DESK_CAP} 行"
+                       "（超额如实标注）；只入解读语境，可引不可断")
+            terms = getattr(self.sel, "desk_terms", ())
             for star, hits, total in self.desk:
-                out.append(f"  {star}：命中 {total} 行，入语境 {len(hits)} 行")
+                label = f"所涉之宫{star}" if star in terms else star
+                out.append(f"  {label}：命中 {total} 行，"
+                           f"入语境 {len(hits)} 行")
             parts.append("\n".join(out))
         if getattr(self.sel, "ju", None) is not None:
             total = zpatterns.RULE_COUNT + zpatterns.SKIP_COUNT

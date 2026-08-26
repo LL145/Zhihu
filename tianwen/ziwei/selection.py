@@ -79,6 +79,7 @@ class ChartSelection:
     readings: list = field(default_factory=list)
     notes: list = field(default_factory=list)   # 借对宫等如实标注
     desk_stars: tuple = ()  # 书桌召回所依主断宫主星（ZiweiKB.desk 用）
+    desk_terms: tuple = ()  # 书桌召回加查之宫名（问涉题材时；书桌二期）
     ju: list = None         # 格局判定结果（问命格时非 None；凭证用）
 
     @property
@@ -214,9 +215,11 @@ def _add_ju(zkb, chart, sel):
 
 
 def _add_aspect(zkb, chart, sel, aspect):
-    """问事分宫：加取所涉之宫断语。题材宫不另出结论（结论仍单源）。"""
+    """问事分宫：加取所涉之宫断语。题材宫不另出结论（结论仍单源）；
+    宫名并入书桌召回（书桌二期：按宫/类别，类别经分宫映射归于宫名）。"""
     if not aspect or aspect == "命宫":
         return
+    sel.desk_terms = (aspect,)
     readings, notes = _aspect_readings(zkb, chart, aspect)
     if not readings:
         return
