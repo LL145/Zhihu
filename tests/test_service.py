@@ -217,26 +217,32 @@ def test_refusal_and_empty():
 
 
 def test_resolve_topic_three_tiers(monkeypatch):
-    # 一级：用户指定最优先，纵关键词命中他类
-    t = service.resolve_topic("近期换工作是否合适", override="love")
-    assert t.name == "情感" and t.source == "user"
-    # 二级：规则命中即不调模型
+    # 一级：用户指定最优先，纵占者判类可用、关键词命中他类
     def boom(*a, **k):
-        raise AssertionError("规则命中时不得调用占者判类")
+        raise AssertionError("用户指定时不得调用占者判类")
     monkeypatch.setattr(service, "_classify_topic", boom)
+    t = service.resolve_topic("近期换工作是否合适", override="love",
+                              cfg={"api_key": "k", "model": "m"})
+    assert t.name == "情感" and t.source == "user"
+    # 二级：配了模型默认占者判类，来源标注——纵关键词能命中他类
+    monkeypatch.setattr(service, "_classify_topic", lambda cfg, q: "love")
+    t = service.resolve_topic("近期换工作是否合适",
+                              cfg={"api_key": "k", "model": "m"})
+    assert t.name == "情感" and t.source == "llm"
+    # 三级：判类失败（None）或判「其他」→ 回落关键词规则
+    monkeypatch.setattr(service, "_classify_topic", lambda cfg, q: None)
     t = service.resolve_topic("近期换工作是否合适",
                               cfg={"api_key": "k", "model": "m"})
     assert t.name == "事业" and t.source == "rule"
-    # 三级：规则未中且配了模型 → 占者判类，来源标注
-    monkeypatch.setattr(service, "_classify_topic", lambda cfg, q: "love")
-    t = service.resolve_topic("她最近老不理我怎么办",
-                              cfg={"api_key": "k", "model": "m"})
-    assert t.name == "情感" and t.source == "llm"
-    # 判类失败回落「其他」；无 cfg 不调模型
+    monkeypatch.setattr(service, "_classify_topic", lambda cfg, q: "other")
+    assert service.resolve_topic("近期换工作是否合适",
+                                 cfg={"api_key": "k"}).name == "事业"
+    # 规则再未中才归「其他」；无 cfg 不调模型、径按规则
     monkeypatch.setattr(service, "_classify_topic", lambda cfg, q: None)
     assert service.resolve_topic("她最近老不理我怎么办",
                                  cfg={"api_key": "k"}).key == "other"
     monkeypatch.setattr(service, "_classify_topic", boom)
+    assert service.resolve_topic("近期换工作是否合适").name == "事业"
     assert service.resolve_topic("她最近老不理我怎么办").key == "other"
     # 红线仍先行
     with pytest.raises(service.RefusalError):

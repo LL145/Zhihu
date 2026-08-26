@@ -33,11 +33,12 @@ class RefusalError(Exception):
 
 
 def resolve_topic(question, cfg=None, override=None):
-    """判类三级：用户指定 > 关键词规则 > 占者判类（规则未中且已配模型）。
+    """判类三级：用户指定 > 占者判类（配模型即默认）> 关键词规则回落。
 
     红线先查（抛 RefusalError），故占者判类不会见到拒答类问题。
     override 为类别键（topic.CATEGORIES）；cfg 缺省或无 api_key 则不启用
-    占者判类，规则未中照旧归「其他」。
+    占者判类，径按关键词规则。占者判类失败或判「其他」时同样回落规则
+    （判类只定选文框架，失败不致命），规则再未中才归「其他」。
     """
     question = (question or "").strip()
     if not question:
@@ -47,12 +48,11 @@ def resolve_topic(question, cfg=None, override=None):
         raise RefusalError(refusal)
     if override:
         return topic.by_key(override, source="user")
-    tp = topic.classify(question)
-    if tp.key == "other" and cfg and cfg.get("api_key"):
+    if cfg and cfg.get("api_key"):
         key = _classify_topic(cfg, question)
         if key and key != "other":
             return topic.by_key(key, source="llm")
-    return tp
+    return topic.classify(question)
 
 
 def prepare(question, *, name="", birth_dt=None, gender=None, when=None,

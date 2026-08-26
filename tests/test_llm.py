@@ -133,12 +133,16 @@ def test_classify_topic(monkeypatch):
 
     def fake_post(*a, **k):
         seen["temp"] = k["json"]["temperature"]
+        seen["sys"] = k["json"]["messages"][0]["content"]
         seen["user"] = k["json"]["messages"][1]["content"]
         return _Resp('{"key": "love"}')
 
     monkeypatch.setattr(llm.requests, "post", fake_post)
     assert llm.classify_topic(CFG, "她最近老不理我怎么办") == "love"
     assert seen["temp"] == 0 and "情感" in seen["user"]
+    # 提示词附各类落点与时运/事类辨界（配模型即默认级，边界须与规则一致）
+    assert "两情向背" in seen["user"]
+    assert "归 fortune" in seen["sys"] and "两端取舍" in seen["sys"]
 
     monkeypatch.setattr(llm.requests, "post",
                         lambda *a, **k: _Resp('{"key": "nonsense"}'))

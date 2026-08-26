@@ -200,7 +200,7 @@ class App(ttk.Frame):
             daemon=True).start()
 
     def _prepare_worker(self, token, question, name, birth, override, cfg):
-        """判类（规则→占者判类）与全部确定性步骤在工作线程完成，不卡界面。"""
+        """判类（占者判类→规则回落）与全部确定性步骤在工作线程完成，不卡界面。"""
         try:
             tp = service.resolve_topic(
                 question, cfg=cfg if cfg["api_key"] else None,

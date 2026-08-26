@@ -78,6 +78,9 @@ def test_by_key_and_categories():
     assert topic.by_key("other").name == "其他"
     keys = dict(topic.CATEGORIES)
     assert "fortune" in keys and keys["other"] == "其他"
+    # CATALOG 与 CATEGORIES 同序同键，各类皆有落点指引（占者判类提示词用）
+    assert [(k, n) for k, n, _note in topic.CATALOG] == list(topic.CATEGORIES)
+    assert all(note for _k, _n, note in topic.CATALOG)
     with pytest.raises(KeyError):
         topic.by_key("nonsense")
 

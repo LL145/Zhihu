@@ -202,19 +202,24 @@ def _attempt_loop(cfg, messages, allowed, check, max_attempts, timeout, fail_msg
 
 
 def classify_topic(cfg, question, timeout=30):
-    """占者判类：关键词规则未命中时，以模型定问事类别（判类三级之第二级）。
+    """占者判类：配有模型即为判类默认（判类三级之第二级，service.resolve_topic）。
 
-    温度取 0；返回类别键，失败或键不在表内返回 None（调用方回落「其他」）。
-    判类只定选文框架，不作任何占断。
+    温度取 0；返回类别键，失败或键不在表内返回 None（调用方回落关键词
+    规则）。判类只定选文框架，不作任何占断。
     """
     from . import topic as topic_mod
-    cats = "\n".join(f"- {k}：{name}" for k, name in topic_mod.CATEGORIES)
+    cats = "\n".join(f"- {k}：{name}——{note}"
+                     for k, name, note in topic_mod.CATALOG)
     messages = [
         {"role": "system",
          "content": "你是占前司事者：只判定用户所问属于哪一类问事，不作任何占断"
                     "或回答。只输出一个 JSON 对象 {\"key\": \"<类别键>\"}，"
-                    "键限于用户给出的列表；无法归类或语义不明用 other。"},
-        {"role": "user", "content": f"类别（键：名）：\n{cats}\n\n所问：{question}"},
+                    "键限于用户给出的列表；无法归类或语义不明用 other。"
+                    "辨界：问「××运／运势」（财运、事业运、桃花运等）纵带"
+                    "具体题材皆归 fortune；问具体谋为之事（如换工作是否合适）"
+                    "归其事类；choice 只收无具体题材的两端取舍。"},
+        {"role": "user",
+         "content": f"类别（键：名——解读落点）：\n{cats}\n\n所问：{question}"},
     ]
     try:
         content = _request(cfg, messages, timeout, temperature=0)

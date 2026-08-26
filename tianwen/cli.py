@@ -138,8 +138,9 @@ def main(argv=None):
     p.add_argument("--when", help="指定起卦/论限时刻 YYYY-MM-DD HH:MM，按北京时间"
                                   "（默认取当前时刻并自动换算为北京时间；用于复现）")
     p.add_argument("--topic", choices=[name for _k, name in topic.CATEGORIES],
-                   help="手动指定问事类别（缺省自动判类：关键词规则优先，"
-                        "规则未中且已配模型时由占者判类并标注）")
+                   help="手动指定问事类别（缺省自动判类：已配模型默认由占者"
+                        "判类并标注，失败回落关键词规则；未配模型或 --no-llm "
+                        "按关键词规则）")
     p.add_argument("--full", action="store_true", help="附卦画与十二宫盘面")
     p.add_argument("--no-llm", action="store_true", help="不调用大模型，结论直取定例断辞")
     args = p.parse_args(argv)

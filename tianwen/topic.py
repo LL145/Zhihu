@@ -1,4 +1,7 @@
-"""问事分类（分类断法）：确定性关键词规则，决定解读落点。
+"""问事分类（分类断法）：类别表、落点指引与关键词规则层，决定解读落点。
+
+判类三级见 service.resolve_topic：用户指定 > 占者判类（配模型即默认，
+llm.classify_topic）> 本层关键词规则回落（确定性，离线可用）。
 
 类别依设计文档 §7.2：事业、学业、情感、人际、出行、居所、决策抉择、
 命格、时运、其他。每类附「解读落点」指引——这是占法指引而非典籍原文，
@@ -81,6 +84,10 @@ _DEFAULT = Topic(
 #: 《梅花易数》十八占、六爻按类取用神、紫微十二宫皆是定类而占。
 CATEGORIES = tuple((key, name) for key, name, _h, _k, _n in _RULES) \
     + (("other", "其他"),)
+
+#: (key, 中文名, 落点指引) 全表——占者判类提示词用（落点助模型辨界）。
+CATALOG = tuple((key, name, note) for key, name, _h, _k, note in _RULES) \
+    + (("other", "其他", _DEFAULT.note),)
 
 
 def classify(question: str) -> Topic:
