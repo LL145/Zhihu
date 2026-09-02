@@ -9,11 +9,13 @@
   :root {
     --bg: #f7f4ec; --panel: #fffdf7; --ink: #2b2620; --dim: #7a7264;
     --line: #d8d0bd; --accent: #8c3f2b; --accent-ink: #fff;
+    --sheng: #2e7d4f; --ke: #b3392b; --tint: rgba(140, 63, 43, .09);
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #17150f; --panel: #1f1c15; --ink: #e8e2d2; --dim: #97907e;
       --line: #3a352a; --accent: #b0522f;
+      --sheng: #7fc78f; --ke: #e0745a; --tint: rgba(176, 82, 47, .2);
     }
   }
   * { box-sizing: border-box; }
@@ -84,6 +86,38 @@
          line-height: 1.5; background: var(--bg); }
   .pal.ming { border-color: var(--accent);
               box-shadow: inset 0 0 0 1px var(--accent); }
+  .pal.sf { background: var(--tint); }
+  .pal.focus { border-style: dashed; border-color: var(--accent); }
+  .bd { display: inline-block; color: var(--accent); border: 1px solid;
+        border-radius: 3px; padding: 0 .25em; font-size: .68rem;
+        line-height: 1.4; margin-left: .3em; }
+  .trisub { color: var(--dim); font-size: .74rem; }
+  /* 体用生克图与西洋本命盘图（SVG，随主题取色） */
+  .fig svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  .fig text { fill: var(--ink); font-family: inherit; }
+  .fig text.dim, .fig .dim { fill: var(--dim); }
+  .fig .lbl { paint-order: stroke; stroke: var(--panel); stroke-width: 4px;
+              stroke-linejoin: round; }
+  .fig .yao { fill: var(--ink); }
+  .fig .ring { fill: none; stroke: var(--line); }
+  .fig .spoke { stroke: var(--line); }
+  .fig .edge { fill: none; stroke-width: 1.6; }
+  .fig .edge.sheng, .fig .mk-sheng { stroke: var(--sheng); }
+  .fig .edge.ke, .fig .mk-ke { stroke: var(--ke); }
+  .fig .edge.bihe { stroke: var(--dim); stroke-dasharray: 4 3; }
+  .fig .mk-sheng { fill: var(--sheng); } .fig .mk-ke { fill: var(--ke); }
+  .fig text.sheng { fill: var(--sheng); } .fig text.ke { fill: var(--ke); }
+  .fig .tinode { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+  .fig .asp { fill: none; stroke-width: 1.2; }
+  .fig .asp.he { stroke: var(--sheng); }
+  .fig .asp.buhe { stroke: var(--ke); stroke-dasharray: 5 3; }
+  .fig .axis { stroke: var(--accent); stroke-width: 1.4; }
+  .fig .axis.unc { stroke-dasharray: 4 3; }
+  .fig text.accent { fill: var(--accent); }
+  .fig .glyph { font-size: 15px; }
+  .fig .sign { font-size: 13px; }
+  .fig .small { font-size: 10px; }
+  .figlegend { color: var(--dim); font-size: .8rem; margin: .4rem 0 0; }
   .zwcenter { grid-area: 2 / 2 / 4 / 4; display: flex; flex-direction: column;
               justify-content: center; text-align: center;
               color: var(--dim); font-size: .82rem; line-height: 1.7; }
@@ -412,7 +446,8 @@ $("copyout").addEventListener("click", async () => {
   }
 });
 
-// ── 卦象图与十二宫盘图（据 viz 数据绘制；纯呈现，不出第二结论） ──
+// ── 卦象图、体用生克图、十二宫盘图与西洋本命盘图
+//    （据 viz 数据绘制；纯呈现，不出第二结论） ──
 const esc = (s) => String(s).replace(/[&<>"]/g,
   (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -445,14 +480,170 @@ function renderCasts(casts) {
     <div class="gualabel">${esc(c.label)}</div>
     <div class="guacast">
       <div class="gua">${guaSVG(c.ben, c.moving)}
-        <div class="guaname">${esc(c.ben.name)}</div></div>
+        <div class="guaname">${esc(c.ben.name)}${triSub(c.ben)}</div></div>
       <div class="guaarrow">→</div>
       <div class="gua">${guaSVG(c.zhi, 0)}
-        <div class="guaname">${esc(c.zhi.name)}</div></div>
+        <div class="guaname">${esc(c.zhi.name)}${triSub(c.zhi)}</div></div>
     </div>`).join("");
   return `<div class="vizcard"><p class="viztitle">卦象（动爻已标示；`
        + `主参之分见下文「卦盘一览」）</p>`
        + `<div class="guarow">${blocks}</div></div>`;
+}
+
+function triSub(g) {
+  // 上下卦名（hexagrams 数据 trigrams 为 [下卦, 上卦]）
+  return g.trigrams ? `<div class="trisub">${esc(g.trigrams[0])}下${esc(g.trigrams[1])}上</div>` : "";
+}
+
+// ── 体用生克图（《梅花易数》体用之说；关系为五行事实，断语见文本） ──
+function triSVG(lines, cx, top, w, lh, gap) {
+  // 三画自下而上 lines[0] 为初画；自上而下画
+  let s = "";
+  for (let i = 0; i < 3; i++) {
+    const y = top + i * (lh + gap), v = lines[2 - i];
+    if (v === 1) {
+      s += `<rect class="yao" x="${cx - w / 2}" y="${y}" width="${w}" height="${lh}"/>`;
+    } else {
+      const seg = Math.round(w * 0.42);
+      s += `<rect class="yao" x="${cx - w / 2}" y="${y}" width="${seg}" height="${lh}"/>`
+         + `<rect class="yao" x="${cx + w / 2 - seg}" y="${y}" width="${seg}" height="${lh}"/>`;
+    }
+  }
+  return s;
+}
+
+const REL_WORD = { "生体": "生", "克体": "克", "体生": "生", "体克": "克", "比和": "比和" };
+const REL_CLS = { "生体": "sheng", "克体": "ke", "体生": "sheng", "体克": "ke", "比和": "bihe" };
+const CN_MONTH = ["", "正", "二", "三", "四", "五", "六", "七", "八", "九", "十", "冬", "腊"];
+
+function renderTiyong(t) {
+  const W = 460, H = 250, TX = 230, TY = 66, R = 36, BY = 190;
+  const nodes = [
+    Object.assign({ x: 62, tag: "用（事之端）" }, t.yong),
+    Object.assign({ x: 174, tag: "下互（事之中）" }, t.hu[0]),
+    Object.assign({ x: 286, tag: "上互（事之中）" }, t.hu[1]),
+    Object.assign({ x: 398, tag: "变（事之终）" }, t.bian),
+  ];
+  let s = `<defs>
+    <marker id="mk-sheng" class="mk-sheng" viewBox="0 0 10 10" refX="9" refY="5"
+      markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="mk-ke" class="mk-ke" viewBox="0 0 10 10" refX="9" refY="5"
+      markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z"/></marker></defs>`;
+  // 体：居上，圈示；卦气随月令
+  s += `<circle class="tinode" cx="${TX}" cy="${TY}" r="${R}"/>`;
+  s += triSVG(t.ti.lines, TX, TY - 15, 30, 6, 5);
+  s += `<text class="lbl accent" x="${TX}" y="${TY - R - 10}" text-anchor="middle" font-size="13">体（不动之卦）</text>`;
+  s += `<text class="lbl" x="${TX + R + 12}" y="${TY - 3}" font-size="14">${esc(t.ti.name)}·${esc(t.ti.wx)}</text>`;
+  const qi = t.guaqi ? `卦气${esc(t.guaqi)}（${CN_MONTH[t.month] || t.month}月）` : "月令未知，不论卦气";
+  s += `<text class="lbl dim" x="${TX + R + 12}" y="${TY + 15}" font-size="12">${qi}</text>`;
+  nodes.forEach((n) => {
+    const top = BY - 34;
+    // 连线：自结点顶端至体圈边缘；向体为生体／克体，自体出为体生／体克
+    const dx = TX - n.x, dy = TY - (top - 6), len = Math.hypot(dx, dy);
+    const ex = TX - dx / len * (R + 2), ey = TY - dy / len * (R + 2);
+    const sx = n.x, sy = top - 6;
+    const cls = REL_CLS[n.rel] || "bihe";
+    const toTi = n.rel === "生体" || n.rel === "克体";
+    const fromTi = n.rel === "体生" || n.rel === "体克";
+    const d = toTi ? `M${sx},${sy} L${ex},${ey}` : `M${ex},${ey} L${sx},${sy}`;
+    const mk = (toTi || fromTi) ? ` marker-end="url(#mk-${cls})"` : "";
+    s += `<path class="edge ${cls}" d="${d}"${mk}/>`;
+    const mx = (sx + ex) / 2, my = (sy + ey) / 2;
+    s += `<text class="lbl ${cls}" x="${mx}" y="${my + 4}" text-anchor="middle" font-size="12">${esc(REL_WORD[n.rel] || n.rel)}</text>`;
+    s += triSVG(n.lines, n.x, top, 30, 6, 5);
+    s += `<text class="lbl" x="${n.x}" y="${BY + 16}" text-anchor="middle" font-size="14">${esc(n.name)}·${esc(n.wx)}</text>`;
+    s += `<text class="lbl dim" x="${n.x}" y="${BY + 33}" text-anchor="middle" font-size="11">${esc(n.tag)}</text>`;
+  });
+  const note = t.hu_note ? `；${esc(t.hu_note)}` : "";
+  return `<div class="vizcard fig"><p class="viztitle">体用生克图（动爻所在之卦为用、不动为体；`
+       + `互卦论事之中、变卦论事之终${note}）</p>`
+       + `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="体用生克图">${s}</svg>`
+       + `<p class="figlegend">箭头指向体为生体／克体，自体发出为体生／体克，虚线为比和；`
+       + `五行依《梅花易数·卷一》八宫五行，主断之总诀明文见下文「卦盘一览」。</p></div>`;
+}
+
+// ── 西洋本命盘图（托勒密七曜；相位按宫距；上升在左） ──
+const SIGN_GLYPH = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"]
+  .map((g) => g + "\uFE0E");   // 变体选择符：取文字样式，不作彩色表情
+const SIGN_CN = ["白羊", "金牛", "双子", "巨蟹", "狮子", "室女",
+                 "天秤", "天蝎", "人马", "摩羯", "宝瓶", "双鱼"];
+const PLANET_GLYPH = { sun: "☉", moon: "☽", mercury: "☿", venus: "♀",
+                       mars: "♂", jupiter: "♃", saturn: "♄" };
+const CN_NUM = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二"];
+
+function renderAstro(a) {
+  const S = 460, C = S / 2, RO = 190, RS = 156, RH = 145, RP = 122, RP2 = 100, RA = 80;
+  const ang = a.angles, base = ang ? ang.asc_lon : 0;
+  const pt = (L, r) => {
+    const th = (180 - (L - base)) * Math.PI / 180;
+    return [C + r * Math.cos(th), C - r * Math.sin(th)];
+  };
+  const f = (n) => n.toFixed(1);
+  let s = `<circle class="ring" cx="${C}" cy="${C}" r="${RO}"/>`
+        + `<circle class="ring" cx="${C}" cy="${C}" r="${RS}"/>`
+        + `<circle class="ring" cx="${C}" cy="${C}" r="${RA}"/>`;
+  for (let k = 0; k < 12; k++) {
+    const [x1, y1] = pt(k * 30, RA), [x2, y2] = pt(k * 30, RO);
+    s += `<line class="spoke" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>`;
+    const [gx, gy] = pt(k * 30 + 15, RO - 13), [nx, ny] = pt(k * 30 + 15, RO - 27);
+    s += `<text class="glyph" x="${f(gx)}" y="${f(gy + 5)}" text-anchor="middle">${SIGN_GLYPH[k]}</text>`;
+    s += `<text class="small dim" x="${f(nx)}" y="${f(ny + 4)}" text-anchor="middle">${SIGN_CN[k]}</text>`;
+    if (ang && ang.houses) {   // 整宫分府：上升所在宫为第一府
+      const h = ((k - ang.asc_sign) % 12 + 12) % 12 + 1;
+      const [hx, hy] = pt(k * 30 + 15, RH);
+      s += `<text class="small dim" x="${f(hx)}" y="${f(hy + 4)}" text-anchor="middle">${CN_NUM[h]}府</text>`;
+    }
+  }
+  // 相位线（按宫距，1:16）：和实线、不和虚线
+  const lonOf = {};
+  a.placements.forEach((p) => { lonOf[p.name] = p.lon; });
+  a.aspects.forEach((x) => {
+    const [x1, y1] = pt(lonOf[x.a], RA), [x2, y2] = pt(lonOf[x.b], RA);
+    s += `<line class="asp ${x.harmony === "和" ? "he" : "buhe"}" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}">`
+       + `<title>${esc(x.a)}与${esc(x.b)}${esc(x.kind)}（${esc(x.harmony)}）</title></line>`;
+  });
+  // 上升与中天轴（有出生地时）；存疑者虚线加「？」
+  if (ang) {
+    [["asc", "上升"], ["mc", "中天"]].forEach(([k, name]) => {
+      const L = ang[k + "_lon"], unc = ang[k + "_uncertain"];
+      const [x1, y1] = pt(L, RA), [x2, y2] = pt(L, RO);
+      s += `<line class="axis${unc ? " unc" : ""}" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>`;
+      const [tx, ty] = pt(L, RO + 6), cx = tx - C;
+      const anchor = cx < -20 ? "end" : cx > 20 ? "start" : "middle";
+      const dy = anchor === "middle" ? (ty < C ? -2 : 12) : 4;
+      s += `<text class="lbl accent small" x="${f(tx)}" y="${f(ty + dy)}" text-anchor="${anchor}">${name}${unc ? "？" : ""}</text>`;
+    });
+  }
+  // 七曜：黄经处刻度＋符号与名；相近者内外错开
+  const ps = a.placements.slice().sort((p, q) => p.lon - q.lon);
+  let lastL = -999, lastR = RP;
+  ps.forEach((p) => {
+    const near = Math.abs(p.lon - lastL) < 9;
+    const r = near ? (lastR === RP ? RP2 : RP) : RP;
+    lastL = p.lon; lastR = r;
+    const [tx1, ty1] = pt(p.lon, RS), [tx2, ty2] = pt(p.lon, RS - 6);
+    s += `<line class="spoke" x1="${f(tx1)}" y1="${f(ty1)}" x2="${f(tx2)}" y2="${f(ty2)}"/>`;
+    const [x, y] = pt(p.lon, r);
+    const unc = p.key === "moon" && a.moon_uncertain ? "？" : "";
+    s += `<text class="lbl glyph" x="${f(x)}" y="${f(y + 2)}" text-anchor="middle">${PLANET_GLYPH[p.key] || ""}${unc}`
+       + `<title>${esc(p.name)} ${esc(p.sign)}${p.deg.toFixed(1)}°</title></text>`;
+    s += `<text class="lbl small" x="${f(x)}" y="${f(y + 15)}" text-anchor="middle">${esc(p.name)}</text>`;
+  });
+  const legend = [];
+  legend.push(ang ? "上升在左，整宫分府自上升宫起" : "未填出生地：无上升与分府，白羊宫起于左");
+  legend.push("相位按宫距（《占星四书》1:16）：和实线、不和虚线");
+  if (a.dignities.length) {
+    legend.push("得位：" + a.dignities.map(([n, st, sg]) => `${n}${st}于${sg}`).join("、"));
+  }
+  if (a.same_sign.length) {
+    legend.push("同宫并列：" + a.same_sign.map(([x, y, sg]) => `${x}${y}同在${sg}`).join("、"));
+  }
+  if (a.moon_uncertain) legend.push("月亮落宫存疑（时辰两端跨宫）");
+  return `<div class="vizcard fig"><p class="viztitle">西洋本命盘（参·语境；七曜落宫依春分点起算）</p>`
+       + `<svg viewBox="0 0 ${S} ${S}" width="${S}" height="${S}" role="img" aria-label="西洋本命盘">${s}</svg>`
+       + `<p class="figlegend">${legend.map(esc).join("；")}。</p></div>`;
 }
 
 function starHTML(st) {
@@ -478,13 +669,28 @@ function renderChart(ch) {
     const stars = p.stars.map(starHTML).join("") || "<span class='st misc'>（无星）</span>";
     const kong = p.kong.length
       ? `　<span class="kong">${p.kong.map((k) => esc(k === "截路空亡" ? "截空" : "旬空")).join(" ")}</span>` : "";
-    const cls = "pal" + (p.name === "命宫" ? " ming" : "");
+    const fo = ch.focus || {};
+    let cls = "pal" + (p.name === "命宫" ? " ming" : "");
+    if (fo.palace === p.name && p.name !== "命宫") cls += " focus";
+    if ((fo.sanfang || []).includes(br)) cls += " sf";
+    let badges = "";
+    if (fo.daxian === br) badges += `<span class="bd">大限</span>`;
+    if (fo.taisui === br) badges += `<span class="bd">太岁</span>`;
+    if (fo.xiaoxian === br) badges += `<span class="bd">小限</span>`;
     return `<div class="${cls}">${stars}` +
            `<div class="pmeta">${esc(p.name)}${p.body ? "·身" : ""} ${esc(p.gz)}` +
-           `　限${p.daxian[0]}-${p.daxian[1]}${kong}</div></div>`;
+           `　限${p.daxian[0]}-${p.daxian[1]}${kong}${badges}</div></div>`;
   }).join("");
+  const fo = ch.focus || {};
+  let note = "命宫框示，空亡标注";
+  if (fo.palace) {
+    note += `；所论${esc(fo.palace)}${fo.palace === "命宫" ? "" : "宫虚框"}，其三方四正淡底`;
+  }
+  if (fo.daxian !== undefined) {
+    note += `；现行大限、太岁、小限并标（虚岁 ${fo.age}）`;
+  }
   return `<div class="vizcard"><p class="viztitle">紫微十二宫` +
-         `（${esc(ch.tag)}；命宫框示，空亡标注）</p>` +
+         `（${esc(ch.tag)}；${note}）</p>` +
          `<div class="zwgrid">${cells}</div></div>`;
 }
 
@@ -492,7 +698,9 @@ function renderViz(v) {
   const box = $("viz");
   if (!v || !v.casts) { box.style.display = "none"; return; }
   let html = renderCasts(v.casts);
+  if (v.tiyong) html += renderTiyong(v.tiyong);
   if (v.chart) html += renderChart(v.chart);
+  if (v.astro) html += renderAstro(v.astro);
   box.innerHTML = html;
   box.style.display = "block";
 }

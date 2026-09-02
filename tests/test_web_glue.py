@@ -84,6 +84,54 @@ def test_viz_structured_data(app):
     assert d["viz"]["chart"]["tag"] == "主断"
 
 
+def test_viz_tiyong_figure_data(app):
+    # 体用生克图：体、用、互（下互、上互）、变之卦画与五行，关系为事实字样
+    d = _run(app, noLLM=True)
+    t = d["viz"]["tiyong"]
+    rels = {"生体", "克体", "体生", "体克", "比和"}
+    assert t["ti"]["name"] and t["ti"]["wx"] in "金木水火土"
+    assert len(t["ti"]["lines"]) == 3 and "rel" not in t["ti"]
+    assert t["yong"]["rel"] in rels and t["yong"]["role"] == "用"
+    assert [h["role"] for h in t["hu"]] == ["下互", "上互"]
+    assert t["bian"]["role"] == "变" and t["bian"]["rel"] in rels
+    assert t["rel"].startswith(("用", "体")) and t["guaqi"] in ("旺", "衰", "平")
+    assert t["month"] == 7                     # 2026-08-24 为农历七月
+    assert "zongjue" not in t and "verdict" not in t   # 纯呈现：不含断语
+    assert d["viz"]["casts"][0]["ben"]["trigrams"][0] in "乾兑离震巽坎艮坤"
+    # 盘作语境时所论之宫为问事分宫（事业→官禄）及其三方四正
+    fo = d["viz"]["chart"]["focus"]
+    assert fo["palace"] == "官禄" and len(fo["sanfang"]) == 3
+    assert fo["branch"] not in fo["sanfang"] and "daxian" not in fo
+    # 盘主断（时运）：并标现行大限、太岁、小限
+    d = _run(app, question="我今年运势如何", noLLM=True)
+    fo = d["viz"]["chart"]["focus"]
+    assert fo["daxian"] and fo["taisui"] and fo["xiaoxian"] and fo["age"] > 0
+    assert fo["palace"] == next(p["name"] for p in d["viz"]["chart"]["palaces"]
+                                if p["branch"] == fo["daxian"])
+    assert "tiyong" not in d["viz"]            # 盘主断：无体用之图
+
+
+def test_viz_astro_wheel_data(app):
+    # 西洋本命盘图：只随命理主断出；七曜黄经落宫、相位、上升中天与分府
+    d = _run(app, noLLM=True)
+    assert "astro" not in d["viz"]
+    d = _run(app, question="我的命格如何", noLLM=True)
+    a = d["viz"]["astro"]
+    assert [p["key"] for p in a["placements"]] == [
+        "sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn"]
+    for p in a["placements"]:
+        assert 0 <= p["lon"] < 360 and p["sign_idx"] == int(p["lon"] // 30)
+        assert p["sign"].endswith("宫") and 0 <= p["deg"] < 30
+    assert all(x["harmony"] in ("和", "不和") for x in a["aspects"])
+    assert a["angles"] is None                 # 未填出生地：无上升分府
+    d = _run(app, question="我的命格如何", noLLM=True,
+             shichen="辰", lon="116.41", lat="39.90")
+    ang = d["viz"]["astro"]["angles"]
+    assert 0 <= ang["asc_lon"] < 360 and ang["asc_sign"] == int(ang["asc_lon"] // 30)
+    assert ang["houses"] is None or (
+        len(ang["houses"]) == 7 and all(1 <= h <= 12 for _k, h, _s in ang["houses"]))
+
+
 def test_birthplace_pair_and_ascendant(app):
     # 出生地成对填写 → 命理主断凭证含上升中天与出生地
     d = _run(app, question="我的命格如何", noLLM=True,
