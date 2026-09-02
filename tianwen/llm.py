@@ -34,12 +34,20 @@ _SYSTEM = """你是一名依《周易》行占的占者。起卦、占法选文�
 表明是注家之言，不得与经文混同。《文言》《说卦》为孔门传文，属经传原文可引；体用\
 取象（说卦）只作解读取象之资。
 2. 引文必须逐字照抄给定原文的文字，并标注其 cite_id。
-3. 断由你任之（judgment 字段）：如古之占者，衡所据经文之辞、动爻之位与卦时之义，\
-就用户所问下占断——一至两句，明言吉凶宜忌之倾向（用传统断辞字汇：吉、凶、悔、吝、\
-厉、无咎、宜、不宜等，不得模棱两可），句末以 [cite_id] 标注所据。断语所据必须落在\
-【所据文本】的卦爻辞、彖象或文言之文上——【语境】文本、注家之言与取象皆不得单独\
-立断。【定例断辞】是经文断辞字样的机械提取，作你的对照基准：从之，则说明其所以然；\
-异断，则必须明言所据之文与其理（如爻位、卦时、问者所处），无据不得异断。
+3. 断由你任之（judgment 字段）：如古之占者，衡所据之文，就用户所问下占断——\
+一至两句，明言吉凶宜忌之倾向（用传统断辞字汇：吉、凶、悔、吝、厉、无咎、宜、不宜等，\
+不得模棱两可），句末以 [cite_id] 标注所据。断语至少须据一处标〔主断〕之文：梅花法\
+即《梅花易数》体用总诀与所问占章之明文（【体用生克】所列体用、互变之关系即其所指），\
+爻辞、彖象、文言可并引为佐；朱子法则为主断经文。【语境】文本、注家之言与取象皆不得\
+单独立断。【定例断辞】是主断明文的机械映射（梅花法按总诀「体克用，诸事吉；用克体，\
+诸事凶……」直取；朱子法按经文断辞字样提取），作你的对照基准：从之，则说明其所以然；\
+异断（如体虽受生而卦气衰、互变俱克），则必须明言所据之文与其理，无据不得异断。
+3a. 事之起、中、终：总诀言「用为事之端，互为事之中间，变为事之终」「用吉变凶者，\
+先吉后凶；用凶变吉者，先凶后吉」——理由宜循用→互→变之序讲此事如何起、中途如何、\
+终局如何，每一步据【体用生克】所列之关系与总诀「某卦生体／克体」之具象句（原文有\
+「公门之喜」「文书之忧」等语者，转述其象并标 cite_id），有故事、有着落。动爻爻辞\
+为易辞之参：与体用之断相合则相印证，不合则如占例「易辞不吉矣，以卦论之」，以体用\
+为断而说明易辞之戒。
 4. 说人话，如老练占者当面与问者说话：结论与理由须有画面、有比方，善用卦象之象\
 作喻（如噬嗑即「咬开硬骨而得金矢」——难中取利），落到问者生活的具体场景；忌公文腔、\
 报告腔、术语罗列。可言势之成色与档次，但须有着落：原文有富贵贫贱、高下等第之语者，\
@@ -61,7 +69,8 @@ _SYSTEM = """你是一名依《周易》行占的占者。起卦、占法选文�
      讲活、说明为何得出上述结论——主断之理落在经传之文，注疏与语境之文
      宜择要参引为佐（旁征博引，主次分明），每段末以 [cite_id] 标注
      该段依据（字符串）
-   - advice: 具体建议，2 到 4 条，落到问者日常做得到的事，说人话（字符串数组）
+   - advice: 具体建议，2 到 4 条，落到问者日常做得到的事，说人话（字符串数组）；
+     其一宜取本卦大象传「君子以……」之义化为可做之事并标其 cite_id
    - quotes: 你实际引用的原文句子，数组，每项 {"text": 逐字原文, "cite_id": 出处编号}"""
 
 _FOLLOWUP_RULES = """解读已完成，用户将就本卦继续追问。追问回答的硬性规则：
@@ -132,11 +141,21 @@ def _payload(question, cast, selection, verdict, allowed_texts, kb, topic=None,
         lines.append(f"{k}：{v}")
     lines.append("")
     lines.append(f"【占法】{selection.rule}")
+    an = getattr(selection, "tiyong", None)
+    if an is not None:
+        lines.append("")
+        lines.append("【体用生克】（机断结果，非原文：所据须引下列总诀与占章之"
+                     "原文并标 cite_id）")
+        for ln in an.lines():
+            lines.append(f"- {ln}")
     lines.append("")
-    lines.append("【所据文本】（断语所据必须落在以下经传原文上）")
+    primary_ids = getattr(selection, "primary_ids", frozenset())
+    lines.append("【所据文本】（断语所据必须落在以下原文上；标〔主断〕者为"
+                 "断语必据之文）")
     for cid, text in allowed_texts.items():
         if not cid.startswith("wangbi:"):
-            lines.append(f"[{cid}] {kb.citation(cid)['source']}：{text}")
+            tag = "〔主断〕" if cid in primary_ids else ""
+            lines.append(f"[{cid}] {tag}{kb.citation(cid)['source']}：{text}")
     notes = [(cid, text) for cid, text in allowed_texts.items()
              if cid.startswith("wangbi:")]
     if notes:
@@ -257,8 +276,9 @@ def interpret(cfg, kb, question, cast, selection, verdict, topic=None,
                              topic, contexts)},
     ]
     primary = frozenset(allowed)
+    must = getattr(selection, "primary_ids", None) or None   # 主断必据之文
     allowed = {**allowed, **context_texts(contexts)}
-    check = lambda r, a: validate(r, a, primary)   # noqa: E731
+    check = lambda r, a: validate(r, a, primary, must)   # noqa: E731
     return _attempt_loop(cfg, messages, allowed, check, max_attempts, timeout,
                          "解读三次未通过引文校验，已拒绝输出")
 

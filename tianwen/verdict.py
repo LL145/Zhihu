@@ -80,6 +80,59 @@ def classify(tokens):
     return "未著断辞"
 
 
+#: 断辞之义（《系辞上传》第三章，xici:shang:3 逐字子串）：按类别附于定例
+XICI_DEFINITION = {
+    "吉": "吉凶者，言乎其失得也",
+    "凶": "吉凶者，言乎其失得也",
+    "条件": "吉凶者，言乎其失得也",
+    "谨": "悔吝者，言乎其小疵也",
+    "平": "无咎者，善补过也",
+}
+XICI_CITE = "xici:shang:3"
+
+#: 梅花体用生克（tiyong.py）之定例：总诀明文映射，不经断辞字样提取
+_TIYONG_VERDICT = {
+    "用生体": "吉", "体克用": "吉", "体用比和": "吉",
+    "体生用": "谨", "用克体": "凶",
+}
+_TIYONG_ACTIONS = {
+    "用生体": "有进益之喜：所谋之事反来助我，宜进",
+    "体克用": "诸事吉：我能制事，可成（占章多言成迟，须耐）",
+    "体用比和": "百事顺遂：彼此相协，可成",
+    "体生用": "有耗失之患：为事所耗，宜慎、量力而行",
+    "用克体": "诸事凶：事反制我，不宜进",
+}
+
+
+def definition(verdict_name):
+    """断辞类别之经典定义 →（句, cite_id）或 None。"""
+    s = XICI_DEFINITION.get(verdict_name)
+    return (s, XICI_CITE) if s else None
+
+
+def audit_label(vd):
+    """一览与结论行之审定标注。"""
+    if vd.get("kind") == "tiyong":
+        return "总诀明文映射"
+    return "人工审定" if vd["audited"] else "自动提取，待人工审定"
+
+
+def decide_tiyong(an) -> dict:
+    """梅花体用生克之定例：用卦与体之关系按《体用总诀》明文直接映射
+    （「体克用，诸事吉；用克体，诸事凶……」），占章之句并记于依据。"""
+    from .tiyong import WUXING
+    rel = an.rel_yong
+    basis = (f"体{an.ti}{WUXING[an.ti]}、用{an.yong}{WUXING[an.yong]}："
+             f"{rel}；总诀明文「{an.zongjue}」")
+    if an.zhan_clause:
+        basis += f"；{an.zhan_title}「{an.zhan_clause}」"
+    return {
+        "cite_id": "meihua:2:tiyong", "verdict": _TIYONG_VERDICT[rel],
+        "action": _TIYONG_ACTIONS[rel], "basis": basis, "audited": True,
+        "kind": "tiyong", "quote": an.zongjue,
+    }
+
+
 def _load_overrides():
     if OVERRIDES_PATH.exists():
         return json.loads(OVERRIDES_PATH.read_text("utf-8"))
@@ -100,6 +153,7 @@ def decide(cite_id: str, text: str) -> dict:
         return {
             "cite_id": cite_id, "verdict": o["verdict"], "action": o["action"],
             "basis": o.get("note", "人工审定"), "audited": True,
+            "kind": "duanci", "quote": text,
         }
     tokens = extract_tokens(text)
     verdict = classify(tokens)
@@ -109,5 +163,5 @@ def decide(cite_id: str, text: str) -> dict:
         basis += "；审定确认（2026-08 全量审定）"
     return {
         "cite_id": cite_id, "verdict": verdict, "action": _ACTIONS[verdict],
-        "basis": basis, "audited": audited,
+        "basis": basis, "audited": audited, "kind": "duanci", "quote": text,
     }

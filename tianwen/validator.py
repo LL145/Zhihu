@@ -69,9 +69,11 @@ def _check_cite_marks(text, allowed, errors, where):
             errors.append(f"{where}中标注的 cite_id 不在本次给定文本之内: {cid}")
 
 
-def validate(result: dict, allowed: dict, primary=None) -> list:
+def validate(result: dict, allowed: dict, primary=None, must=None) -> list:
     """allowed: {cite_id: 原文}；primary: 主断侧 cite_id 集合（None 视同
-    全部 allowed）。返回错误列表，空列表为通过。"""
+    全部 allowed）；must: 主断必据之文集合（非空则断语至少须标其一——
+    梅花法即体用总诀与所问占章，结构上保证吉凶自体用出）。
+    返回错误列表，空列表为通过。"""
     errors = []
     if isinstance(result.get("reasons"), list) and result["reasons"] \
             and all(isinstance(p, str) for p in result["reasons"]):
@@ -103,6 +105,10 @@ def validate(result: dict, allowed: dict, primary=None) -> list:
                    for m in marks):
             errors.append("断语所据须落在主断侧经传原文上——语境侧文本、"
                           "王弼注与说卦取象皆不得单独立断")
+        elif must and not any(m in must for m in marks):
+            errors.append("断语至少须标注一处主断明文之 cite_id（标〔主断〕者："
+                          "梅花法为体用总诀与所问占章）——爻辞、卦辞可并引，"
+                          "不得单独立断")
     _check_cite_marks(result["judgment"], allowed, errors, "断语")
     _check_cite_marks(result["reasons"], allowed, errors, "理由")
     return errors

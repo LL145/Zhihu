@@ -134,7 +134,8 @@ def test_contexts_wired_into_llm(monkeypatch):
 
     monkeypatch.setattr(service, "_interpret", fake_interpret)
     s.interpret({"model": "m"})
-    assert seen["contexts"] is s.contexts and len(s.contexts) == 3
+    assert seen["contexts"] is s.contexts and len(s.contexts) == 4
+    assert any("占例" in b.title for b in s.contexts)
 
 
 def test_chart_fortune_aspect_palace():
@@ -193,7 +194,7 @@ def test_same_moment_different_questions_differ():
     a = service.prepare("近期换工作是否合适", when=WHEN)   # 9字→雷风恒
     b = service.prepare("今日出门是否顺利", when=WHEN)     # 8字→震为雷
     assert a.event_cast.ben_binary != b.event_cast.ben_binary
-    assert a.sel.primary.cite_id != b.sel.primary.cite_id
+    assert [r.cite_id for r in a.sel.readings] != [r.cite_id for r in b.sel.readings]
     assert a.event_cast.ben_binary != a.time_cast.ben_binary
 
 

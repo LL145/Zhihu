@@ -22,6 +22,8 @@
                               xici:shang:9，太极两仪出 xici:shang:11。
     xugua:{shang|xia}         序卦传上下篇。
     zagua:1                   杂卦传。
+    xugua:{卦id}:gua           序卦传之逐卦一行（卦之由来，运行时自整篇切出）。
+    zagua:{卦id}:gua           杂卦传之逐卦一行（卦之性，同上）。
     wenyan:{卦id}:{部位…}     乾坤文言，按所释经文单元锚定（wenyan:1:guaci、
                               wenyan:1:yao:3、wenyan:1:extra……）。
     以上皆孔门传文（经传原文，可引为据）；说卦供梅花体用取象，
@@ -62,6 +64,7 @@ tools/import_gutenberg_tetrabiblos.py）：
 """
 
 import json
+import re
 from pathlib import Path
 
 from .trigrams import TRIGRAMS
@@ -183,8 +186,10 @@ class KnowledgeBase:
             for unit in yz.get("xugua", []):
                 self._add(f"xugua:{unit['id']}",
                           f"《序卦传》{_pian[unit['id']]}篇", unit["text"])
+                self._slice_xugua(unit["text"])
             for unit in yz.get("zagua", []):
                 self._add(f"zagua:{unit['id']}", "《杂卦传》", unit["text"])
+                self._slice_zagua(unit["text"])
         else:
             self.yizhuan_meta = None
 
@@ -229,6 +234,50 @@ class KnowledgeBase:
                           f"（{unit['title']}）", unit["text"])
         else:
             self.tetra_meta = None
+
+    # ── 序卦、杂卦逐卦切片（运行时自整篇派生，非数据订正） ────────────
+    # 单元 xugua:{卦id}:gua / zagua:{卦id}:gua，文为整篇之整行（逐字子串，
+    # 引文校验一体覆盖）；序卦按「受之以X」定所属之卦（乾坤与下篇首卦咸
+    # 无此语，不切），杂卦按各分句句首之卦名（「而」字起者去「而」；
+    # 「比乐师忧」式四字两卦并取），一卦只取首见之行。
+
+    def _name_ids(self):
+        names = {h["name"]: h["id"] for h in self.by_id.values()}
+        if "习坎" in names:      # 序卦、杂卦称「坎」
+            names.setdefault("坎", names["习坎"])
+        return names
+
+    def _slice_xugua(self, text):
+        names = self._name_ids()
+        for line in text.split("\n"):
+            m = re.search(r"受之(?:以)?([^，。；]+?)[，。；]", line)
+            if not m or m.group(1) not in names:
+                continue
+            hid = names[m.group(1)]
+            cid = f"xugua:{hid}:gua"
+            if cid not in self._citations:
+                self._add(cid, f"《序卦传》·{m.group(1)}", line.strip())
+
+    def _slice_zagua(self, text):
+        names = self._name_ids()
+        alt = "|".join(sorted(map(re.escape, names), key=len, reverse=True))
+        lead = re.compile(rf"^((?:{alt})(?:、(?:{alt}))*)")
+        pair = re.compile(rf"^.({alt}).$")
+        for line in text.split("\n"):
+            subjects = []
+            for clause in re.split(r"[，；]", line.strip().rstrip("。")):
+                clause = clause.lstrip("而")
+                m = lead.match(clause)
+                if not m:
+                    continue
+                subjects += m.group(1).split("、")
+                m2 = pair.match(clause[len(m.group(1)):])
+                if m2:
+                    subjects.append(m2.group(1))
+            for name in subjects:
+                cid = f"zagua:{names[name]}:gua"
+                if cid not in self._citations:
+                    self._add(cid, f"《杂卦传》·{name}", line.strip())
 
     def commentary(self, scripture_cite_id):
         """经文单元的王弼注 citation（无注返回 None）。"""

@@ -85,5 +85,11 @@ def test_citation_counts():
     assert sum(c.startswith("wenyan:") for c in kb._citations) == 15
     assert sum(c.startswith("xici:shang:") for c in kb._citations) == 12
     assert sum(c.startswith("xici:xia:") for c in kb._citations) == 9
-    assert sum(c.startswith("xugua:") for c in kb._citations) == 2
-    assert sum(c.startswith("zagua:") for c in kb._citations) == 1
+    assert sum(c in ("xugua:shang", "xugua:xia") for c in kb._citations) == 2
+    assert "zagua:1" in kb._citations
+    # 逐卦切片（运行时自整篇派生）：序卦 61（乾坤与下篇首卦咸无「受之以」
+    # 之语）、杂卦 63（旅不居句首）
+    assert sum(c.startswith("xugua:") and c.endswith(":gua")
+               for c in kb._citations) == 61
+    assert sum(c.startswith("zagua:") and c.endswith(":gua")
+               for c in kb._citations) == 63

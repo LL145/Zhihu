@@ -136,12 +136,16 @@ class Session:
         if self.primary == "event":
             ben = self.kb.id_of(self.event_cast.ben_binary)
             zhi = self.kb.id_of(self.event_cast.zhi_binary)
+            month = lunar.from_datetime(when).month_num   # 卦气以问时月令论
             self.sel = selection.select(self.kb, self.event_cast.method, ben,
                                         zhi, self.event_cast.moving, tp,
-                                        question)
-            p = self.sel.primary
-            self.vd = verdict.decide(p.cite_id,
-                                     self.kb.citation(p.cite_id)["text"])
+                                        question, month=month)
+            if self.sel.tiyong is not None:   # 梅花法：体用生克明文映射
+                self.vd = verdict.decide_tiyong(self.sel.tiyong)
+            else:
+                p = self.sel.primary
+                self.vd = verdict.decide(p.cite_id,
+                                         self.kb.citation(p.cite_id)["text"])
         else:
             aspect = self.aspect
             if tp.key == "fortune":
@@ -221,9 +225,49 @@ class Session:
             desk = self._desk_block()
             if desk is not None:
                 blocks.append(desk)
+        elif getattr(self.sel, "tiyong", None) is not None:
+            li = self._li_block()
+            if li is not None:
+                blocks.append(li)
         if self.astro is not None:
             blocks.append(self._astro_block())
         return blocks
+
+    _LI_CAP = 2   # 占例召回至多则数（依库序；凭证如实标注）
+    _LI_KEYWORDS = {"克体": ("克体", "克之"), "生体": ("生体", "生之"),
+                    "比和": ("比和",)}
+
+    def _li_block(self):
+        """占例（确定性召回层）：按本卦体用之生克字样自《梅花易数》卷一
+        占例池机械召回同类之例入语境（可引不可断）——先取用卦关系，
+        再取互变之关系；召回规则与命中数进凭证（repro_text）。"""
+        an = self.sel.tiyong
+        rels = [an.others[0].rel] + [o.rel for o in an.others[1:]]
+        self.li_terms = []
+        for r in rels:
+            key = {"生体": "生体", "克体": "克体", "比和": "比和"}.get(r)
+            if key and key not in self.li_terms:
+                self.li_terms.append(key)
+        pool = [c["cite_id"] for c in self.kb.citations()
+                if c["cite_id"].startswith("meihua:1:li:")]
+        hits = []
+        for key in self.li_terms:
+            for cid in pool:
+                text = self.kb.citation(cid)["text"]
+                if cid not in hits and any(k in text for k in self._LI_KEYWORDS[key]):
+                    hits.append(cid)
+        self.li_total = len(hits)
+        self.li_hits = hits[:self._LI_CAP]
+        if not self.li_hits:
+            return None
+        items = [(cid, self.kb.citation(cid)["source"], self.kb.citation(cid)["text"])
+                 for cid in self.li_hits]
+        notes = [f"按本卦体用生克字样（{'、'.join(self.li_terms)}）自卷一占例池"
+                 f"机械召回，命中 {self.li_total} 例，依库序列前 {len(self.li_hits)}；"
+                 "占例是邵子断法之范：可引其法为比、说本卦之势，不得以例中"
+                 "所断之事为本卦之断"]
+        return ContextBlock(title="占例（同类生克之例，机械召回）",
+                            notes=notes, items=items)
 
     _DESK_CAP = 8   # 书桌每星至多召回行数（凭证如实标注）
 
@@ -339,8 +383,10 @@ class Session:
                          f"{astro_natal.sign_name(sun.sign_idx)}、月亮"
                          f"{astro_natal.sign_name(moon.sign_idx)}{doubt}"
                          f"{asc}，{got}")
-        audited = "人工审定" if self.vd["audited"] else "自动提取，待人工审定"
-        lines.append(f"  定例断辞（主断侧机断，{audited}）："
+        an = getattr(self.sel, "tiyong", None)
+        if an is not None:
+            lines.append(f"  体用生克（梅花断法）：{an.summary()}")
+        lines.append(f"  定例断辞（主断侧机断，{verdict.audit_label(self.vd)}）："
                      f"【{self.vd['verdict']}】{self.vd['action']}")
         return "\n".join(lines)
 
@@ -375,6 +421,22 @@ class Session:
             parts.append(zreport.render_repro(self.chart))
         if self.astro is not None:
             parts.append(astro_natal.render_repro(self.astro))
+        an = getattr(self.sel, "tiyong", None)
+        if an is not None:
+            out = ["── 体用生克凭证（确定性） " + "─" * 16]
+            out.append("  法：《梅花易数》卷二体用总诀——动爻所在为用、不动为体，"
+                       "八宫五行（卷一）论生克；互卦去初上取中四爻；变卦即"
+                       "之卦所变之一卦；卦气依卷一卦气旺衰以问时农历月令论")
+            for line in an.lines():
+                out.append(f"  {line}")
+            out.append("  约定：辰戌丑未月依「四季之月」条论旺衰，余月依四时；"
+                       "乾坤纯卦依「乾坤无互，互其变卦」；占章之句按关系字样"
+                       "机械截取，无对应字样则不取")
+            if getattr(self, "li_terms", None):
+                out.append(f"  占例召回：字样（{'、'.join(self.li_terms)}）"
+                           f"命中 {self.li_total} 例，入语境 {len(self.li_hits)} 例"
+                           "（可引不可断）")
+            parts.append("\n".join(out))
         if self.desk:
             out = ["── 书桌召回（确定性） " + "─" * 18]
             out.append("  池：《紫微斗数全书·卷一》赋文诸论、十等论、"
@@ -410,22 +472,27 @@ class Session:
 
     def degraded_conclusion_text(self):
         """无模型解读时的结论先行：定例断辞之白话＋主断经文为理由。"""
-        audited = "人工审定" if self.vd["audited"] else "自动提取，待人工审定"
+        audited = verdict.audit_label(self.vd)
         kb = self.kb if self.primary == "event" else self.zkb
         c = kb.citation(self.vd["cite_id"])
-        text = c["text"].replace("\n", " ")
+        text = self.vd.get("quote") or c["text"]
+        text = text.replace("\n", " ")
         note = self.vd["basis"]
         if len(text) > 120:   # 长文（如《论大限》全篇）节引，全文见 corpus
             text = text[:120] + "……"
             note += "；节引，全文可于 corpus 按书名查取"
-        return "\n".join([
+        lines = [
             f"【结论】{self.vd['action']}。",
             f"（定例断辞【{self.vd['verdict']}】，{audited}；"
             "未启用大模型解读，结论直取定例）",
             "",
             f"【理由】主断经文 {c['source']}：「{text}」",
             f"（{note}）",
-        ])
+        ]
+        d = verdict.definition(self.vd["verdict"])
+        if d and self.primary == "event" and kb.has(d[1]):
+            lines.append(f"（断辞之义：「{d[0]}」——{kb.citation(d[1])['source']}）")
+        return "\n".join(lines)
 
     def render_all(self, result=None, model=None, attempts=0, full=False):
         """完整输出（结论先行）：header → 结论/断语/理由/建议 → 一览 →

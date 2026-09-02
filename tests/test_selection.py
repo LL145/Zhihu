@@ -65,10 +65,11 @@ def test_zhuzi_6_moving_other_uses_zhi_guaci():
 
 def test_meihua_selection():
     sel = select_meihua(kb, 49, 55, 5)
-    assert _primary(sel) == "zhouyi:49:yao:5"
+    assert _primary(sel) == "meihua:2:tiyong"        # 体用生克主断
     ids = [r.cite_id for r in sel.readings]
+    assert "zhouyi:49:yao:5" in ids                   # 爻辞为参
     assert "zhouyi:49:guaci" in ids and "zhouyi:55:guaci" in ids
-    assert "梅花易数" in sel.rule
+    assert "梅花易数" in sel.rule and sel.tiyong is not None
 
 
 def test_select_dispatch():

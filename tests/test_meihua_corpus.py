@@ -53,15 +53,16 @@ def test_zhan_attached_by_topic():
     assert "meihua:2:tiyong" in ids
     assert "meihua:2:zhan:qiumou" in ids
     zhan = next(r for r in sel.readings if r.cite_id == "meihua:2:zhan:qiumou")
-    assert "求谋占" in zhan.role and not zhan.primary
+    assert "求谋占" in zhan.role and zhan.primary   # 占章之句并为主断依据
 
 
-def test_tiyong_only_without_topic_match():
-    tp = topic.classify("此事如何")                   # other → 无占章
+def test_renshi_zhan_without_topic_match():
+    # 类别与题材俱未映射 → 人事占通例（「占者以类而推之可也」）
+    tp = topic.classify("此事如何")                   # other
     sel = selection.select_meihua(kb, 49, 55, 5, tp)
     ids = [r.cite_id for r in sel.readings]
     assert "meihua:2:tiyong" in ids
-    assert not any(i.startswith("meihua:2:zhan:") for i in ids)
+    assert [i for i in ids if i.startswith("meihua:2:zhan:")] == ["meihua:2:zhan:renshi"]
 
 
 def test_zhuzi_method_attaches_no_meihua():

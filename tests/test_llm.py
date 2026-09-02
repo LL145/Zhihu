@@ -24,7 +24,7 @@ def _good_payload():
     # 革九五「大人虎变，未占有孚。」
     return {
         "conclusion": "此事可以放手去做，变革之势对你有利。",
-        "judgment": "宜进，其变可孚。[zhouyi:49:yao:5]",
+        "judgment": "宜进，其变可孚。[meihua:2:tiyong][zhouyi:49:yao:5]",
         "reasons": "解读段落。[zhouyi:49:yao:5]",
         "advice": ["建议一", "建议二"],
         "quotes": [{"text": "大人虎变", "cite_id": "zhouyi:49:yao:5"}],

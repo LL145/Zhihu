@@ -79,7 +79,11 @@ def render_readings_compact(kb, selection):
         c = kb.citation(r.cite_id)
         if r.primary:
             out.append(f"  ◆ {r.role}")
-            out.append(f"    {c['source']}：{c['text']}")
+            excerpt = getattr(r, "excerpt", None)
+            if excerpt:
+                out.append(f"    {c['source']}：「{excerpt}」（节引）")
+            else:
+                out.append(f"    {c['source']}：{c['text']}")
             for cid in r.context_ids:
                 ctx = kb.citation(cid)
                 out.append(f"      · {ctx['source']}：{ctx['text']}")
