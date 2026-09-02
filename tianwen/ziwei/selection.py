@@ -112,7 +112,7 @@ def _borrow(chart, palace):
     return chart.palace_of_branch(opp), True
 
 
-def _aspect_readings(zkb, chart, aspect, primary=True):
+def _aspect_readings(zkb, chart, aspect, primary=True, label="所问之宫"):
     """所涉之宫诸星断语（《全书·卷二》十二宫）→ (readings, notes)。
 
     宫总论只随首条断语作语境给一次；底本缺文如实标注。
@@ -131,18 +131,41 @@ def _aspect_readings(zkb, chart, aspect, primary=True):
             continue
         b = s.brightness or "—"
         readings.append(Reading(
-            role=f"所问之宫：{_pname(p)}（{p.branch}） {s.name}（{b}"
+            role=f"{label}：{_pname(p)}（{p.branch}） {s.name}（{b}"
                  + (f"，化{s.sihua}" if s.sihua else "") + "）"
                  + ("〔借对宫〕" if borrowed else ""),
             cite_id=cid, context_ids=ctx, primary=primary))
         ctx = ()
     if not readings and zonglun:
         readings.append(Reading(
-            role=f"所问之宫：{_pname(p)}（{p.branch}）宫总论"
+            role=f"{label}：{_pname(p)}（{p.branch}）宫总论"
                  + ("（本宫与对宫俱无正曜）" if borrowed and not src.major()
                     else ""),
             cite_id=zonglun, context_ids=(), primary=False))
     return readings, notes
+
+
+#: 命宫三方四正之三宫（对宫迁移、三合财帛官禄）；问命格时加取为参
+SANFANG = ("财帛", "官禄", "迁移")
+
+
+def _add_sanfang(zkb, chart, sel, aspect):
+    """三方四正（《全书》论命通例，命宫之对宫与三合宫）：财帛、官禄、
+    迁移三宫诸星断语加取为参（primary=False），只入解读，不另出结论；
+    所问已涉其一者不重列。"""
+    added = []
+    for name in SANFANG:
+        if name == aspect:
+            continue
+        readings, notes = _aspect_readings(zkb, chart, name, primary=False,
+                                           label="三方四正（参）")
+        if readings:
+            added.append(name)
+            sel.readings.extend(readings)
+            sel.notes.extend(notes)
+    if added:
+        sel.notes.append(f"三方四正（{'、'.join(added)}）诸星断语加取为参"
+                         "（《全书·卷二》十二宫；只入解读，不另出结论）")
 
 
 def select_destiny(zkb, chart, aspect=None):
@@ -178,6 +201,7 @@ def select_destiny(zkb, chart, aspect=None):
     _add_gejue(zkb, sel, ming.branch)
     _add_ju(zkb, chart, sel)
     _add_aspect(zkb, chart, sel, aspect)
+    _add_sanfang(zkb, chart, sel, aspect)
     return sel
 
 
