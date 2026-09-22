@@ -3,87 +3,388 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>天问 · 网页试用</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E7%AD%AE%3C/text%3E%3C/svg%3E">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f4efe4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15130f" media="(prefers-color-scheme: dark)">
+<meta name="description" content="天问：有典可依、可复现的占断。梅花起卦、紫微排盘与逐字引文校验全部在浏览器内运行。">
+<title>天问 · 有典可依的占断</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='14' fill='%239b3b2a'/%3E%3Ctext x='50' y='72' font-size='62' text-anchor='middle' fill='%23fdfaf3' font-family='Songti SC,SimSun,serif'%3E%E5%A4%A9%3C/text%3E%3C/svg%3E">
 <style>
+  /* ── 设计变量：纸、墨、朱砂、青（生）、赤（克）── */
   :root {
-    --bg: #f7f4ec; --panel: #fffdf7; --ink: #2b2620; --dim: #7a7264;
-    --line: #d8d0bd; --accent: #8c3f2b; --accent-ink: #fff;
-    --sheng: #2e7d4f; --ke: #b3392b; --tint: rgba(140, 63, 43, .09);
+    --paper: #f3eee3; --panel: #fdfaf3; --panel-2: #f7f2e6; --well: #f1ebdd;
+    --ink: #26211b; --ink-2: #4b4438; --dim: #7c7365;
+    --line: #e2d9c6; --line-2: #cbbfa6;
+    --accent: #9b3b2a; --accent-hover: #7f2f21; --accent-ink: #fdfaf3;
+    --accent-soft: rgba(155, 59, 42, .08); --tint: rgba(155, 59, 42, .09);
+    --gold: #a8802d; --gold-soft: rgba(168, 128, 45, .12);
+    --sheng: #2f7a52; --sheng-soft: rgba(47, 122, 82, .12);
+    --ke: #b5392b; --ke-soft: rgba(181, 57, 43, .12);
+    --zhong: #a8701c; --zhong-soft: rgba(168, 112, 28, .14);
+    --shadow: 0 1px 2px rgba(40, 30, 10, .05), 0 10px 28px -16px rgba(40, 30, 10, .25);
+    --shadow-lg: 0 2px 4px rgba(40, 30, 10, .05), 0 24px 48px -24px rgba(40, 30, 10, .35);
+    --radius: 12px; --radius-sm: 8px;
+    --serif: "Songti SC", "Noto Serif CJK SC", "Noto Serif SC",
+             "Source Han Serif SC", STSong, SimSun, "Times New Roman", serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Noto Sans Mono CJK SC", monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #17150f; --panel: #1f1c15; --ink: #e8e2d2; --dim: #97907e;
-      --line: #3a352a; --accent: #b0522f;
-      --sheng: #7fc78f; --ke: #e0745a; --tint: rgba(176, 82, 47, .2);
+      --paper: #15130f; --panel: #1d1a15; --panel-2: #221f19; --well: #191713;
+      --ink: #ebe4d3; --ink-2: #cdc4b1; --dim: #968d7a;
+      --line: #353024; --line-2: #4b4434;
+      --accent: #cf6d51; --accent-hover: #e07f62; --accent-ink: #1a1410;
+      --accent-soft: rgba(207, 109, 81, .14); --tint: rgba(207, 109, 81, .16);
+      --gold: #cfa653; --gold-soft: rgba(207, 166, 83, .16);
+      --sheng: #7fc78f; --sheng-soft: rgba(127, 199, 143, .16);
+      --ke: #e6785e; --ke-soft: rgba(230, 120, 94, .16);
+      --zhong: #d8a24a; --zhong-soft: rgba(216, 162, 74, .18);
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px -16px rgba(0, 0, 0, .6);
+      --shadow-lg: 0 2px 4px rgba(0, 0, 0, .3), 0 24px 48px -24px rgba(0, 0, 0, .7);
     }
   }
+
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 16px/1.7 "Songti SC", STSong, SimSun, "Noto Serif CJK SC", serif;
+    margin: 0; color: var(--ink); font: 16px/1.75 var(--serif);
+    background: var(--paper);
+    background-image:
+      radial-gradient(60rem 22rem at 50% -8rem, var(--accent-soft), transparent 70%),
+      linear-gradient(to bottom, transparent, transparent);
+    min-height: 100vh;
   }
-  main { max-width: 46rem; margin: 0 auto; padding: 1.2rem 1rem 4rem; }
-  h1 { font-size: 1.6rem; margin: .6rem 0 0; letter-spacing: .12em; }
-  .tagline { color: var(--dim); font-size: .9rem; margin: 0 0 1.2rem; }
-  fieldset {
-    border: 1px solid var(--line); background: var(--panel);
-    border-radius: 6px; padding: .8rem 1rem 1rem; margin: 0 0 1rem;
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  ::selection { background: var(--tint); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ── 页头 ── */
+  .top {
+    position: sticky; top: 0; z-index: 10;
+    backdrop-filter: saturate(1.2) blur(10px); -webkit-backdrop-filter: blur(10px);
+    background: color-mix(in srgb, var(--paper) 82%, transparent);
+    border-bottom: 1px solid var(--line);
   }
-  legend { padding: 0 .5em; color: var(--dim); font-size: .9rem; }
-  label { display: block; margin: .6rem 0 .15rem; font-size: .95rem; }
-  .hint { color: var(--dim); font-size: .82rem; margin: .15rem 0 0; }
-  input[type=text], input[type=password], input[type=date],
-  input[type=datetime-local], select, textarea {
-    width: 100%; padding: .45em .6em; font: inherit; color: var(--ink);
-    background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+  @supports not (background: color-mix(in srgb, red 50%, blue)) {
+    .top { background: var(--paper); }
   }
-  textarea { min-height: 4.2em; resize: vertical; }
-  .row { display: flex; gap: .8rem; flex-wrap: wrap; }
-  .row > div { flex: 1 1 10rem; }
-  .checks { display: flex; gap: 1.4rem; flex-wrap: wrap; margin-top: .6rem; }
-  .checks label { display: inline-flex; align-items: center; gap: .35em;
-                  margin: 0; }
-  button {
-    font: inherit; padding: .5em 1.6em; border-radius: 4px; cursor: pointer;
-    border: 1px solid var(--accent); background: var(--accent);
-    color: var(--accent-ink); letter-spacing: .2em;
+  .topin {
+    max-width: 78rem; margin: 0 auto; padding: .7rem 1rem;
+    display: flex; align-items: center; gap: .9rem;
   }
-  button.minor { background: transparent; color: var(--accent);
-                 letter-spacing: 0; padding: .3em .8em; font-size: .85rem; }
-  #examples .hint { margin-top: .5rem; }
-  .exrow { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .25rem; }
-  button.chip { background: transparent; color: var(--ink);
-                border: 1px solid var(--line); border-radius: 999px;
-                letter-spacing: 0; padding: .12em .7em; font-size: .82rem; }
-  button.chip:hover { border-color: var(--accent); color: var(--accent); }
-  button:disabled { opacity: .45; cursor: wait; }
-  #status { color: var(--dim); font-size: .9rem; margin: .8rem 0; }
-  #status.err { color: var(--accent); }
-  #out {
-    display: none; white-space: pre-wrap; word-break: break-word;
+  .seal {
+    width: 2.4rem; height: 2.4rem; border-radius: 6px; flex: none;
+    background: var(--accent); color: var(--accent-ink);
+    display: grid; place-items: center; font-size: 1.15rem; font-weight: 700;
+    letter-spacing: 0; line-height: 1;
+    box-shadow: inset 0 0 0 1.5px var(--accent-ink), inset 0 0 0 3px var(--accent);
+  }
+  .brand { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+  .brand b { font-size: 1.15rem; letter-spacing: .3em; font-weight: 700; }
+  .brand small { color: var(--dim); font-size: .78rem; letter-spacing: .05em; }
+  .spacer { flex: 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: .45em; white-space: nowrap;
+    border: 1px solid var(--line-2); border-radius: 999px;
+    padding: .18em .8em .18em .6em; font-size: .8rem; color: var(--dim);
+    background: var(--panel); max-width: 60vw; overflow: hidden;
+  }
+  .pill span { overflow: hidden; text-overflow: ellipsis; }
+  .dot { width: .55em; height: .55em; border-radius: 50%; flex: none;
+         background: var(--zhong); }
+  .pill.ready .dot { background: var(--sheng); }
+  .pill.busy .dot, .pill.boot .dot { animation: pulse 1.2s ease-in-out infinite; }
+  .pill.busy .dot { background: var(--accent); }
+  .pill.err .dot { background: var(--ke); }
+  .pill.err { color: var(--ke); }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); }
+                     50% { opacity: .35; transform: scale(.7); } }
+  .toplink { font-size: .82rem; color: var(--dim); }
+  @media (max-width: 640px) { .toplink { display: none; } }
+
+  /* ── 主体版式：宽屏左右两栏，窄屏上下 ── */
+  main { max-width: 78rem; margin: 0 auto; padding: 1.4rem 1rem 4rem; }
+  .intro { margin: 0 0 1.2rem; }
+  .intro h1 { font-size: 1.75rem; margin: 0; letter-spacing: .16em; font-weight: 700; }
+  .intro p { color: var(--dim); margin: .35rem 0 0; font-size: .92rem; max-width: 52rem; }
+  .layout { display: grid; grid-template-columns: 1fr; gap: 1.4rem; align-items: start; }
+  @media (min-width: 1080px) {
+    .layout { grid-template-columns: minmax(0, 25rem) minmax(0, 1fr); gap: 1.8rem; }
+    .intro h1 { font-size: 2rem; }
+  }
+
+  /* ── 卡片 ── */
+  .card {
     background: var(--panel); border: 1px solid var(--line);
-    border-radius: 6px; padding: 1rem 1.1rem; font-size: .95rem;
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 1.1rem 1.25rem 1.25rem; margin: 0 0 1rem;
   }
+  .card-h {
+    display: flex; align-items: baseline; gap: .6em; margin: 0 0 .7rem;
+    font-size: 1rem; font-weight: 700; letter-spacing: .06em;
+  }
+  .card-h .num {
+    font-size: .72rem; color: var(--accent); letter-spacing: 0;
+    border: 1px solid var(--accent); border-radius: 4px; padding: 0 .45em;
+    line-height: 1.5; font-weight: 400;
+  }
+  .card-h .sub { font-weight: 400; color: var(--dim); font-size: .8rem;
+                 letter-spacing: 0; }
+
+  /* ── 表单 ── */
+  label { display: block; margin: .8rem 0 .25rem; font-size: .9rem; color: var(--ink-2); }
+  label:first-child { margin-top: 0; }
+  .req { color: var(--accent); }
+  .hint { color: var(--dim); font-size: .8rem; margin: .35rem 0 0; line-height: 1.6; }
+  input[type=text], input[type=password], input[type=date], input[type=number],
+  input[type=datetime-local], select, textarea {
+    width: 100%; padding: .55em .75em; font: inherit; color: var(--ink);
+    background: var(--well); border: 1px solid var(--line-2);
+    border-radius: var(--radius-sm);
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  input:hover, select:hover, textarea:hover { border-color: var(--dim); }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--accent); background: var(--panel);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  input::placeholder, textarea::placeholder { color: var(--dim); opacity: .8; }
+  select {
+    appearance: none; -webkit-appearance: none; padding-right: 2.2em;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%237c7365' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right .8em center;
+  }
+  textarea { min-height: 5em; resize: vertical; line-height: 1.6; }
+  #question { font-size: 1.05rem; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 420px) { .row { grid-template-columns: 1fr; } }
+  .exlab { color: var(--dim); font-size: .8rem; margin: .7rem 0 .25rem; }
+  .exlab b { color: var(--ink-2); font-weight: 600; }
+  .exrow { display: flex; flex-wrap: wrap; gap: .35rem; }
+  button.chip {
+    background: transparent; color: var(--ink-2); font-size: .8rem;
+    border: 1px solid var(--line-2); border-radius: 999px;
+    letter-spacing: 0; padding: .15em .75em; line-height: 1.6;
+    transition: all .15s;
+  }
+  button.chip:hover { border-color: var(--accent); color: var(--accent);
+                      background: var(--accent-soft); }
+  details.adv { margin-top: .9rem; border-top: 1px dashed var(--line); padding-top: .5rem; }
+  details.adv summary {
+    cursor: pointer; color: var(--dim); font-size: .85rem; list-style: none;
+    display: flex; align-items: center; gap: .4em; user-select: none;
+  }
+  details.adv summary::-webkit-details-marker { display: none; }
+  details.adv summary::before {
+    content: ""; width: .4em; height: .4em; border-right: 1.5px solid var(--dim);
+    border-bottom: 1.5px solid var(--dim); transform: rotate(-45deg);
+    transition: transform .15s; margin-right: .2em;
+  }
+  details.adv[open] summary::before { transform: rotate(45deg); }
+  details.adv summary:hover { color: var(--accent); }
+  .checks { display: flex; gap: .5rem 1.4rem; flex-wrap: wrap; margin-top: .8rem; }
+  .checks label {
+    display: inline-flex; align-items: center; gap: .45em; margin: 0;
+    cursor: pointer; font-size: .88rem;
+  }
+  .checks input { accent-color: var(--accent); width: 1em; height: 1em; margin: 0; }
+
+  button {
+    font: inherit; padding: .5em 1.4em; border-radius: var(--radius-sm);
+    cursor: pointer; border: 1px solid var(--accent); background: var(--accent);
+    color: var(--accent-ink); letter-spacing: .15em; transition: all .15s;
+  }
+  button:hover:not(:disabled) { background: var(--accent-hover);
+                                border-color: var(--accent-hover); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.minor {
+    background: transparent; color: var(--accent); letter-spacing: 0;
+    padding: .28em .8em; font-size: .84rem; border-color: var(--line-2);
+  }
+  button.minor:hover:not(:disabled) { background: var(--accent-soft);
+                                      border-color: var(--accent); }
+  button.primary {
+    width: 100%; padding: .8em 1em; font-size: 1.05rem; letter-spacing: .5em;
+    text-indent: .5em; margin-top: .2rem; box-shadow: var(--shadow);
+    display: inline-flex; align-items: center; justify-content: center; gap: .6em;
+  }
+  button.primary:disabled { cursor: wait; }
+  .spin {
+    width: 1em; height: 1em; border-radius: 50%; display: none; flex: none;
+    border: 2px solid currentColor; border-right-color: transparent;
+    animation: spin .8s linear infinite;
+  }
+  .busy .spin { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #status { color: var(--dim); font-size: .85rem; margin: .7rem 0 0; min-height: 1.4em; }
+  #status.err { color: var(--ke); }
+  .keyline { display: flex; align-items: center; gap: .6em; flex-wrap: wrap; }
+  .keyline .hint { margin: 0; flex: 1 1 14rem; }
+
+  /* ── 结果栏 ── */
+  .col-out { min-width: 0; }
+  #empty { text-align: center; padding: 2.4rem 1.4rem; }
+  #empty .glyph {
+    font-size: 3rem; line-height: 1; color: var(--accent); margin: 0 0 .6rem;
+    opacity: .85;
+  }
+  #empty h2 { font-size: 1.1rem; margin: 0 0 .3rem; letter-spacing: .12em; }
+  #empty p { color: var(--dim); font-size: .9rem; margin: 0 auto; max-width: 30rem; }
+  .four { display: grid; grid-template-columns: repeat(2, 1fr); gap: .6rem;
+          margin: 1.4rem 0 0; text-align: left; }
+  @media (min-width: 640px) { .four { grid-template-columns: repeat(4, 1fr); } }
+  .four div { border: 1px solid var(--line); border-radius: var(--radius-sm);
+              padding: .6rem .75rem; background: var(--panel-2); }
+  .four b { display: block; font-size: .92rem; }
+  .four small { color: var(--dim); font-size: .76rem; line-height: 1.5; display: block; }
+  .promise { display: flex; justify-content: center; gap: 1.2rem; flex-wrap: wrap;
+             margin: 1.2rem 0 0; color: var(--dim); font-size: .8rem; }
+  .promise span::before { content: "◆"; color: var(--gold); margin-right: .35em;
+                          font-size: .7em; vertical-align: .15em; }
+
+  #result { display: none; scroll-margin-top: 4.2rem; }
+  .card, .vizcard { scroll-margin-top: 4.2rem; }
+  .rhead { margin: 0 0 .9rem; }
+  .rq { font-size: 1.25rem; font-weight: 700; line-height: 1.5; letter-spacing: .02em; }
+  .rq::before { content: "「"; color: var(--dim); font-weight: 400; }
+  .rq::after { content: "」"; color: var(--dim); font-weight: 400; }
+  .rmeta { display: flex; gap: .4rem .5rem; flex-wrap: wrap; align-items: center;
+           margin-top: .4rem; color: var(--dim); font-size: .8rem; }
+  .tag { display: inline-block; border: 1px solid var(--line-2); border-radius: 999px;
+         padding: 0 .65em; font-size: .76rem; line-height: 1.7; color: var(--ink-2);
+         background: var(--panel); }
+  .tag.llm { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
+  .tag.plain { border-color: var(--line-2); }
+  .tag.warn { border-color: var(--zhong); color: var(--zhong); background: var(--zhong-soft); }
+
+  .notice { border-left: 3px solid var(--zhong); background: var(--zhong-soft);
+            border-radius: var(--radius-sm); padding: .6rem .9rem; margin: 0 0 .9rem;
+            font-size: .88rem; white-space: pre-wrap; word-break: break-word; }
+  .notice.bad { border-color: var(--ke); background: var(--ke-soft); }
+  .notice.stop { border-color: var(--accent); background: var(--accent-soft); }
+  .notice .nt { font-weight: 700; margin-right: .5em; }
+
+  /* 结论卡：结论先行 */
+  .hero { border-color: var(--line-2); position: relative; overflow: hidden;
+          box-shadow: var(--shadow-lg); }
+  .hero::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+                  width: 4px; background: var(--accent); }
+  .hero-top { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+              margin: 0 0 .5rem; }
+  .eyebrow { font-size: .78rem; letter-spacing: .3em; color: var(--accent);
+             text-indent: .3em; }
+  .vbadge { display: inline-flex; align-items: center; gap: .4em; font-size: .78rem;
+            border-radius: 999px; padding: .1em .75em .1em .5em; color: var(--dim);
+            border: 1px solid var(--line-2); background: var(--panel-2); }
+  .vbadge b { font-size: 1rem; line-height: 1; letter-spacing: 0; }
+  .vbadge.pos { color: var(--sheng); border-color: var(--sheng); background: var(--sheng-soft); }
+  .vbadge.neg { color: var(--ke); border-color: var(--ke); background: var(--ke-soft); }
+  .vbadge.mid { color: var(--zhong); border-color: var(--zhong); background: var(--zhong-soft); }
+  .conclusion { font-size: 1.32rem; line-height: 1.6; margin: 0; font-weight: 700;
+                letter-spacing: .01em; }
+  @media (min-width: 640px) { .conclusion { font-size: 1.45rem; } }
+  .cnote { color: var(--dim); font-size: .84rem; margin: .4rem 0 0; white-space: pre-wrap; }
+  .blk { margin: 1rem 0 0; padding-top: .9rem; border-top: 1px solid var(--line); }
+  .blk h4 { margin: 0 0 .3rem; font-size: .8rem; letter-spacing: .3em; color: var(--accent);
+            font-weight: 700; text-indent: .3em; }
+  .blk h4 small { letter-spacing: 0; text-indent: 0; color: var(--dim); font-weight: 400;
+                  margin-left: .4em; }
+
+  /* 通用小节正文：逐行渲染，保留原文缩进 */
+  .body { white-space: pre-wrap; word-break: break-word; font-size: .92rem;
+          line-height: 1.75; }
+  .ln { min-height: 1.2em; }
+  .ln.gap { min-height: .6em; }
+  .ln.note { color: var(--dim); }
+  .ln.paren { color: var(--dim); font-size: .88em; }
+  .ln.main { font-weight: 700; margin-top: .35em; }
+  .ln.ref { color: var(--ink-2); }
+  .ln.cite { color: var(--ink-2); font-size: .9em; }
+  .ln.sub { color: var(--ink-2); font-size: .9em; }
+  .ln.ask { font-weight: 700; }
+  .ln.ans { }
+  .body q, .ln .quote { color: var(--accent); }
+  .kv { display: grid; grid-template-columns: minmax(7em, auto) 1fr; gap: .1em 1em;
+        padding: .3em 0; border-bottom: 1px dashed var(--line); font-size: .92rem; }
+  .kv:last-child { border-bottom: 0; }
+  .kv .k { color: var(--dim); font-size: .86em; }
+  .kv .v { word-break: break-word; }
+  @media (max-width: 480px) { .kv { grid-template-columns: 1fr; gap: 0; } }
+
+  .sec .card-h { font-size: .95rem; }
+  .sec .card-h .t { flex: 1; }
+  .sec .card-h .desc { font-weight: 400; color: var(--dim); font-size: .8rem;
+                       letter-spacing: 0; display: block; margin-top: .1rem; }
+  details.group { padding: 0; }
+  details.group > summary {
+    cursor: pointer; list-style: none; padding: .9rem 1.25rem;
+    display: flex; align-items: center; gap: .6em; font-weight: 700; letter-spacing: .06em;
+    user-select: none;
+  }
+  details.group > summary::-webkit-details-marker { display: none; }
+  details.group > summary::after {
+    content: ""; width: .45em; height: .45em; margin-left: auto;
+    border-right: 1.5px solid var(--dim); border-bottom: 1.5px solid var(--dim);
+    transform: rotate(-45deg); transition: transform .15s; flex: none;
+  }
+  details.group[open] > summary::after { transform: rotate(45deg); }
+  details.group > summary .sub { font-weight: 400; color: var(--dim); font-size: .8rem;
+                                 letter-spacing: 0; }
+  details.group > summary:hover { color: var(--accent); }
+  .group .subsec { padding: .8rem 1.25rem 1rem; border-top: 1px solid var(--line); }
+  .group .subsec h4 { margin: 0 0 .3rem; font-size: .9rem; letter-spacing: .04em; }
+  .group .subsec .body { font-size: .86rem; color: var(--ink-2); }
+  .card.fu { border-left: 3px solid var(--gold); }
+  .card.fu .card-h { color: var(--gold); }
+  .card.after { border-left: 3px solid var(--sheng); }
+  .card.after .card-h { color: var(--sheng); }
+  .disclaimer { color: var(--dim); font-size: .78rem; margin: .4rem 0 1rem; }
+
+  #outbar { display: none; gap: .5rem; flex-wrap: wrap; justify-content: flex-end;
+            margin: -.3rem 0 .9rem; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
+        white-space: nowrap; }
+  #out { display: none; white-space: pre-wrap; word-break: break-word;
+         background: var(--panel); border: 1px solid var(--line); font-size: .86rem;
+         border-radius: var(--radius); padding: 1rem 1.1rem; font-family: var(--mono);
+         line-height: 1.65; margin: 0 0 1rem; }
+  #out.show { display: block; }
+  .rawmode #report, .rawmode #sections, .rawmode #viz { display: none !important; }
+
+  #followup { display: none; }
+  #followup .row { grid-template-columns: 1fr auto; align-items: end; }
+  #followup label { margin-top: 0; }
+  #askgo { padding: .55em 1.3em; white-space: nowrap; }
+
   /* ── 卦象图与十二宫盘图（纯呈现：文本输出之插图） ── */
-  #viz { display: none; margin: 1rem 0; }
+  #viz { display: none; }
   .vizcard { background: var(--panel); border: 1px solid var(--line);
-             border-radius: 6px; padding: .8rem 1rem; margin-bottom: .8rem; }
-  .viztitle { color: var(--dim); font-size: .85rem; margin: 0 0 .5rem; }
-  .guarow { display: flex; gap: 1.4rem 2rem; flex-wrap: wrap; }
-  .guacast { display: flex; gap: .7rem; align-items: center; }
+             border-radius: var(--radius); padding: .9rem 1.1rem 1rem;
+             margin-bottom: 1rem; box-shadow: var(--shadow); }
+  .viztitle { color: var(--dim); font-size: .82rem; margin: 0 0 .6rem; }
+  .viztitle::before { content: "图"; display: inline-block; color: var(--accent);
+                      border: 1px solid var(--accent); border-radius: 3px;
+                      font-size: .7rem; line-height: 1.4; padding: 0 .35em;
+                      margin-right: .5em; vertical-align: .1em; }
+  .guarow { display: flex; gap: 1.2rem 2.2rem; flex-wrap: wrap; }
+  .guacast { display: flex; gap: .8rem; align-items: center; }
   .gua { text-align: center; }
   .gua svg rect { fill: var(--ink); }
   .gua svg rect.mv { fill: var(--accent); }
   .gua svg text.mvtag { fill: var(--accent); font-size: 12px; }
-  .guaname { font-size: .82rem; margin-top: .15rem; }
-  .gualabel { flex-basis: 100%; color: var(--dim); font-size: .82rem;
-              margin: 0 0 -.6rem; }
+  .guaname { font-size: .84rem; margin-top: .2rem; font-weight: 600; }
+  .gualabel { flex-basis: 100%; color: var(--dim); font-size: .8rem;
+              margin: 0 0 -.5rem; }
   .guaarrow { color: var(--dim); font-size: 1.1rem; }
   .zwgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-  .pal { border: 1px solid var(--line); border-radius: 4px;
-         padding: .3rem .4rem; min-height: 5.6rem; font-size: .78rem;
-         line-height: 1.5; background: var(--bg); }
+  .pal { border: 1px solid var(--line); border-radius: 6px;
+         padding: .35rem .45rem; min-height: 5.8rem; font-size: .78rem;
+         line-height: 1.5; background: var(--well); }
+  @media (max-width: 480px) {
+    .pal { font-size: .66rem; min-height: 4.8rem; padding: .25rem .3rem; }
+    .zwcenter { font-size: .7rem; line-height: 1.5; }
+  }
   .pal.ming { border-color: var(--accent);
               box-shadow: inset 0 0 0 1px var(--accent); }
   .pal.sf { background: var(--tint); }
@@ -91,16 +392,15 @@
   .bd { display: inline-block; color: var(--accent); border: 1px solid;
         border-radius: 3px; padding: 0 .25em; font-size: .68rem;
         line-height: 1.4; margin-left: .3em; }
-  .trisub { color: var(--dim); font-size: .74rem; }
-  /* 体用生克图与西洋本命盘图（SVG，随主题取色） */
+  .trisub { color: var(--dim); font-size: .74rem; font-weight: 400; }
   .fig svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
   .fig text { fill: var(--ink); font-family: inherit; }
   .fig text.dim, .fig .dim { fill: var(--dim); }
   .fig .lbl { paint-order: stroke; stroke: var(--panel); stroke-width: 4px;
               stroke-linejoin: round; }
   .fig .yao { fill: var(--ink); }
-  .fig .ring { fill: none; stroke: var(--line); }
-  .fig .spoke { stroke: var(--line); }
+  .fig .ring { fill: none; stroke: var(--line-2); }
+  .fig .spoke { stroke: var(--line-2); }
   .fig .edge { fill: none; stroke-width: 1.6; }
   .fig .edge.sheng, .fig .mk-sheng { stroke: var(--sheng); }
   .fig .edge.ke, .fig .mk-ke { stroke: var(--ke); }
@@ -117,7 +417,7 @@
   .fig .glyph { font-size: 15px; }
   .fig .sign { font-size: 13px; }
   .fig .small { font-size: 10px; }
-  .figlegend { color: var(--dim); font-size: .8rem; margin: .4rem 0 0; }
+  .figlegend { color: var(--dim); font-size: .8rem; margin: .5rem 0 0; }
   .zwcenter { grid-area: 2 / 2 / 4 / 4; display: flex; flex-direction: column;
               justify-content: center; text-align: center;
               color: var(--dim); font-size: .82rem; line-height: 1.7; }
@@ -131,43 +431,97 @@
         margin-left: 1px; }
   .pmeta { color: var(--dim); margin-top: .1rem; }
   .kong { color: var(--accent); }
-  #outbar { display: none; margin-top: .5rem; }
-  #followup { display: none; margin-top: 1rem; }
-  #followup .row { align-items: end; }
-  #history { display: none; margin-top: 1.6rem; color: var(--dim);
-             font-size: .9rem; }
-  #history ul { list-style: none; margin: .4rem 0; padding: 0; }
-  #history li { margin: .15rem 0; }
-  .afternote { color: var(--dim); font-size: .82rem; margin: 0 0 .2rem .6rem; }
-  footer { color: var(--dim); font-size: .8rem; margin-top: 2.5rem; }
-  a { color: var(--accent); }
+
+  /* ── 占问记录 ── */
+  #history { display: none; margin-top: .4rem; }
+  #history summary { cursor: pointer; list-style: none; font-weight: 700;
+                     letter-spacing: .06em; display: flex; align-items: center; gap: .6em; }
+  #history summary::-webkit-details-marker { display: none; }
+  #history summary .sub { font-weight: 400; color: var(--dim); font-size: .8rem;
+                          letter-spacing: 0; }
+  #history summary::after { content: ""; width: .45em; height: .45em; margin-left: auto;
+    border-right: 1.5px solid var(--dim); border-bottom: 1.5px solid var(--dim);
+    transform: rotate(-45deg); transition: transform .15s; }
+  #history[open] summary::after { transform: rotate(45deg); }
+  #history ul { list-style: none; margin: .8rem 0 .6rem; padding: 0; display: grid; gap: .5rem; }
+  #history li { border: 1px solid var(--line); border-radius: var(--radius-sm);
+                padding: .55rem .8rem; background: var(--panel-2);
+                display: grid; grid-template-columns: 1fr auto; gap: .2rem .8rem;
+                align-items: center; }
+  .hq { cursor: pointer; font-size: .92rem; line-height: 1.5; min-width: 0; }
+  .hq:hover { color: var(--accent); }
+  .hq .ht { display: block; color: var(--dim); font-size: .76rem; }
+  .hq .vb { display: inline-block; font-size: .72rem; border-radius: 4px; padding: 0 .4em;
+            margin-right: .4em; line-height: 1.5; border: 1px solid var(--line-2);
+            color: var(--dim); vertical-align: .1em; }
+  .hq .vb.pos { color: var(--sheng); border-color: var(--sheng); }
+  .hq .vb.neg { color: var(--ke); border-color: var(--ke); }
+  .hq .vb.mid { color: var(--zhong); border-color: var(--zhong); }
+  .afternote { grid-column: 1 / -1; color: var(--dim); font-size: .8rem;
+               border-top: 1px dashed var(--line); padding-top: .3rem; }
+  .afternote::before { content: "后事"; color: var(--sheng); border: 1px solid var(--sheng);
+                       border-radius: 3px; font-size: .7rem; padding: 0 .3em;
+                       margin-right: .5em; line-height: 1.4; }
+
+  footer { color: var(--dim); font-size: .8rem; margin-top: 2.5rem; text-align: center;
+           border-top: 1px solid var(--line); padding-top: 1.2rem; line-height: 1.8; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+  @media print {
+    .top, .col-form, #outbar, #followup, #history, footer { display: none !important; }
+    .card, .vizcard { box-shadow: none; break-inside: avoid; }
+    body { background: #fff; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1>天　问</h1>
-  <p class="tagline">有典可依、可复现的占断——网页试用版。排盘起卦与引文校验
-    全部在你的浏览器内运行；大模型请求由浏览器直达 OpenRouter。</p>
+<header class="top">
+  <div class="topin">
+    <div class="seal" aria-hidden="true">問</div>
+    <div class="brand"><b>天问</b><small>有典可依 · 可复现的占断</small></div>
+    <div class="spacer"></div>
+    <div class="pill boot" id="pill" role="status" aria-live="polite">
+      <i class="dot"></i><span id="pilltext">正在启动</span></div>
+    <a class="toplink" href="https://github.com/LL145/Zhihu" target="_blank" rel="noopener">源码与算法</a>
+  </div>
+</header>
 
+<main>
+  <div class="intro">
+    <h1>天　问</h1>
+    <p>问语卦、时间卦、姓名卦与紫微命盘四样同起，吉凶只从主断一处出。
+      排盘起卦与逐字引文校验全部在你的浏览器内运行；大模型请求由浏览器直达 OpenRouter，
+      不经任何第三方服务器。</p>
+  </div>
+
+  <div class="layout">
+  <div class="col-form">
   <form id="form">
-    <fieldset>
-      <legend>所问与其人（输入不全只减少参照，不碍起卦）</legend>
-      <label for="question">所问之事 *</label>
+    <section class="card">
+      <h2 class="card-h"><span class="num">一</span>所问之事
+        <span class="sub">输入不全只减少参照，不碍起卦</span></h2>
+      <label for="question">所问 <span class="req">*</span></label>
       <textarea id="question" required
                 placeholder="如：近期换一份工作是否合适"></textarea>
       <div id="examples">
-        <p class="hint">不知问什么？点一例即填。<b>问事</b>（以问语起卦作断）：</p>
+        <p class="exlab"><b>问事</b>（以问语起卦作断）——不知问什么？点一例即填</p>
         <div class="exrow" id="ex-event"></div>
-        <p class="hint"><b>问命</b>（命格时运走紫微盘主断——须一并填生辰，缺则以卦就当下之势）：</p>
+        <p class="exlab"><b>问命</b>（命格时运走紫微盘主断，须一并填生辰；缺则以卦就当下之势）</p>
         <div class="exrow" id="ex-chart"></div>
       </div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-h"><span class="num">二</span>其人
+        <span class="sub">姓名起姓名卦，生辰排紫微盘</span></h2>
       <div class="row">
         <div>
-          <label for="name">姓名（起姓名卦；可缺）</label>
-          <input type="text" id="name" placeholder="两三字">
+          <label for="name">姓名</label>
+          <input type="text" id="name" placeholder="两三字，可缺">
         </div>
         <div>
-          <label for="gender">性别（排盘用）</label>
+          <label for="gender">性别</label>
           <select id="gender">
             <option value="">——</option>
             <option>男</option>
@@ -177,7 +531,7 @@
       </div>
       <div class="row">
         <div>
-          <label for="birth">出生日期（公历；可缺则无盘）</label>
+          <label for="birth">出生日期（公历）</label>
           <input type="date" id="birth">
         </div>
         <div>
@@ -185,31 +539,37 @@
           <select id="shichen"></select>
         </div>
       </div>
-      <div class="row">
-        <div>
-          <label for="lon">出生地东经°（可缺；西经取负）</label>
-          <input type="number" id="lon" step="any" min="-180" max="180"
-                 placeholder="如 116.41——供西洋盘上升与分府">
+      <p class="hint">生辰按出生地钟表时间填写（中国大陆即北京时间）；缺则无盘，仍可起卦。</p>
+      <details class="adv">
+        <summary>出生地经纬度与其他选项</summary>
+        <div class="row">
+          <div>
+            <label for="lon">出生地东经°（西经取负）</label>
+            <input type="number" id="lon" step="any" min="-180" max="180"
+                   placeholder="如 116.41">
+          </div>
+          <div>
+            <label for="lat">出生地北纬°（南纬取负）</label>
+            <input type="number" id="lat" step="any" min="-90" max="90"
+                   placeholder="如 39.90">
+          </div>
         </div>
-        <div>
-          <label for="lat">出生地北纬°（南纬取负）</label>
-          <input type="number" id="lat" step="any" min="-90" max="90"
-                 placeholder="如 39.90">
+        <p class="hint">经纬度供西洋本命盘上升与整宫分府；不填则不算，不以默认地冒充。</p>
+        <div class="checks">
+          <label><input type="checkbox" id="full">附卦画与十二宫盘面文本</label>
+          <label><input type="checkbox" id="nollm">不调大模型（仅定例断辞）</label>
         </div>
-      </div>
-      <div class="checks">
-        <label><input type="checkbox" id="full">附卦画与十二宫盘面</label>
-        <label><input type="checkbox" id="nollm">不调大模型（仅定例断辞）</label>
-      </div>
-    </fieldset>
+      </details>
+    </section>
 
-    <fieldset>
-      <legend>大模型（OpenRouter）</legend>
+    <section class="card">
+      <h2 class="card-h"><span class="num">三</span>大模型解读
+        <span class="sub">OpenRouter，可选</span></h2>
       <div class="row">
         <div>
-          <label for="apikey">API Key（sk-or-v1-…）</label>
+          <label for="apikey">API Key</label>
           <input type="password" id="apikey" autocomplete="off"
-                 placeholder="留空则仅出定例断辞">
+                 placeholder="sk-or-v1-…（可留空）">
         </div>
         <div>
           <label for="model">模型</label>
@@ -219,41 +579,72 @@
           </select>
         </div>
       </div>
-      <p class="hint">Key 只保存在本机浏览器（localStorage），不入仓库、
-        不经任何第三方服务器；公用电脑请用后
-        <button type="button" class="minor" id="clearkey">清除已存 Key</button></p>
-    </fieldset>
+      <div class="keyline" style="margin-top:.6rem">
+        <p class="hint">Key 只保存在本机浏览器（localStorage），不入仓库、不经任何第三方服务器。公用电脑请用后清除。</p>
+        <button type="button" class="minor" id="clearkey">清除已存 Key</button>
+      </div>
+    </section>
 
-    <button type="submit" id="go" disabled>起　占</button>
+    <button type="submit" id="go" class="primary" disabled>
+      <i class="spin" aria-hidden="true"></i><span>起占</span></button>
     <p id="status">正在启动…</p>
   </form>
-
-  <div id="viz"></div>
-  <pre id="out"></pre>
-  <div id="outbar">
-    <button type="button" class="minor" id="copyout">复制结果</button>
   </div>
 
-  <div id="followup">
-    <div class="row">
-      <div>
-        <label for="ask">追问（就本次结果续问，不重新起卦排盘）</label>
-        <input type="text" id="ask">
+  <div class="col-out">
+    <section class="card" id="empty">
+      <div class="glyph" aria-hidden="true">䷀</div>
+      <h2>结论先行，有典可依</h2>
+      <p>填好所问，点「起占」。先出一句白话结论，再出断语与理由，每条引文逐字校验可翻书核对。</p>
+      <div class="four">
+        <div><b>问语卦</b><small>梅花·书写来意，以其字占之；问事之主断</small></div>
+        <div><b>时间卦</b><small>梅花·年月日时起例，论当下之势</small></div>
+        <div><b>姓名卦</b><small>梅花·字占，论问者之位</small></div>
+        <div><b>紫微命盘</b><small>论秉性禀赋与限运；问命之主断</small></div>
       </div>
-      <div style="flex:0">
-        <button type="button" id="askgo">追　问</button>
+      <div class="promise">
+        <span>流程与文本俱出典籍明文</span>
+        <span>起卦排盘可复算</span>
+        <span>占断附存证摘要</span>
       </div>
+    </section>
+
+    <div id="result">
+      <div class="rhead" id="rhead"></div>
+      <div id="outbar">
+        <button type="button" class="minor" id="copyout">复制结果</button>
+        <button type="button" class="minor" id="rawtoggle">查看纯文本</button>
+      </div>
+      <div id="report"></div>
+      <div id="viz"></div>
+      <div id="sections"></div>
+      <pre id="out"></pre>
+      <section class="card" id="followup">
+        <h2 class="card-h"><span class="num">续</span>追问
+          <span class="sub">就本次结果续问，不重新起卦排盘</span></h2>
+        <div class="row">
+          <div>
+            <label for="ask" class="sr">追问</label>
+            <input type="text" id="ask" placeholder="如：若暂不动，何时再看？">
+          </div>
+          <div>
+            <button type="button" id="askgo">追　问</button>
+          </div>
+        </div>
+      </section>
     </div>
+
+    <details class="card" id="history">
+      <summary>占问记录 <span class="sub" id="histcount"></span></summary>
+      <p class="hint" style="margin-top:.4rem">仅存本机浏览器，含追问全文；每条可记「后来如何」以自验应否。</p>
+      <ul id="histlist"></ul>
+      <button type="button" class="minor" id="histclear">清除全部记录</button>
+    </details>
+  </div>
   </div>
 
-  <details id="history">
-    <summary>占问记录（仅存本机浏览器，含追问全文；每条可记「后来如何」）</summary>
-    <ul id="histlist"></ul>
-    <button type="button" class="minor" id="histclear">清除全部记录</button>
-  </details>
-
-  <footer>仅供参考，不构成任何专业建议。源码与算法说明见
-    <a href="https://github.com/LL145/Zhihu">GitHub 仓库</a>（ALGORITHM.md）。
+  <footer>内容源自古代典籍原文及传统占法，属传统文化范畴，仅供参考，不构成任何专业建议。<br>
+    源码与算法说明见 <a href="https://github.com/LL145/Zhihu" target="_blank" rel="noopener">GitHub 仓库</a>（ALGORITHM.md）。
   </footer>
 </main>
 
@@ -321,10 +712,17 @@ let worker = null;         // 待 SW 接管后创建（见文末 startWorker）
 let ready = false, busy = false, timer = null;
 let pending = "run";   // 当前在途请求：run | followup
 let lastAsk = "";
+let lastKind = "plain";   // 当前结果之来源：llm | plain | refusal | error
 
-function setStatus(text, err) {
+// 状态：页脚一行文字 + 页头状态灯（启动/就绪/占中/出错）
+function setStatus(text, err, mode) {
   $("status").textContent = text;
   $("status").className = err ? "err" : "";
+  const pill = $("pill");
+  const m = mode || (err ? "err" : busy ? "busy" : ready ? "ready" : "boot");
+  pill.className = "pill " + m;
+  $("pilltext").textContent =
+    m === "boot" ? "启动中" : m === "busy" ? "占中" : m === "err" ? "出错" : "就绪";
 }
 
 function startClock(base) {
@@ -339,9 +737,195 @@ function stopClock() { clearInterval(timer); timer = null; }
 function setBusy(b, base) {
   busy = b;
   $("go").disabled = b || !ready;
+  $("go").classList.toggle("busy", b);
   $("askgo").disabled = b;
   stopClock();
-  if (b) startClock(base); else setStatus("就绪。");
+  if (b) { setStatus(base + "…"); startClock(base); } else setStatus("就绪。");
+}
+
+// ── 结果呈现：由文本输出解析为「结论先行」诸卡片（纯呈现层：不改一字，
+//    纯文本原样保留于 #out，复制与记录皆取纯文本） ──────────────
+const esc = (s) => String(s).replace(/[&<>"]/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const SEC_RE = /^── (.+?)\s*─+$/;
+function parseReport(text) {
+  const secs = [];
+  let cur = { title: null, lines: [] };
+  text.split("\n").forEach((ln) => {
+    const m = ln.match(SEC_RE);
+    if (m) { secs.push(cur); cur = { title: m[1].trim(), lines: [] }; }
+    else cur.lines.push(ln);
+  });
+  secs.push(cur);
+  const pre = secs.shift();
+  let disclaimer = null;
+  [pre, ...secs].forEach((s) => {
+    const i = s.lines.findIndex((l) => l.startsWith("※ 内容源自"));
+    if (i >= 0) { disclaimer = s.lines[i].slice(2); s.lines.splice(i, 1); }
+  });
+  const head = { question: null, topic: null, notes: [], blocks: [] };
+  let blk = null;
+  pre.lines.forEach((ln) => {
+    let m;
+    if ((m = ln.match(/^所问：(.*)$/))) { head.question = m[1]; blk = null; return; }
+    if ((m = ln.match(/^类别：(.*)$/))) { head.topic = m[1]; blk = null; return; }
+    if ((m = ln.match(/^【([^】]+)】(.*)$/))) {
+      blk = { label: m[1], lines: m[2] ? [m[2]] : [] };
+      head.blocks.push(blk); return;
+    }
+    if (blk) { blk.lines.push(ln); return; }
+    head.notes.push(ln);
+  });
+  const trim = (arr) => {
+    while (arr.length && !arr[0].trim()) arr.shift();
+    while (arr.length && !arr[arr.length - 1].trim()) arr.pop();
+    return arr;
+  };
+  trim(head.notes);
+  head.blocks.forEach((b) => trim(b.lines));
+  secs.forEach((s) => trim(s.lines));
+  return { head, secs, disclaimer };
+}
+
+// 逐行标类：※ 注、◆ 主、◇ 参、· 引、- 约定、（ 旁注；缩进原样保留
+function lineClass(ln) {
+  const t = ln.trimStart();
+  if (t.startsWith("※")) return "note";
+  if (t.startsWith("◆")) return "main";
+  if (t.startsWith("◇")) return "ref";
+  if (t.startsWith("·")) return "cite";
+  if (t.startsWith("- ")) return "sub";
+  if (t.startsWith("问：")) return "ask";
+  if (t.startsWith("〔答〕")) return "ans";
+  if (t.startsWith("（") || t.startsWith("〔")) return "paren";
+  return "";
+}
+function fmtLines(lines) {
+  return lines.map((ln) => ln.trim()
+    ? `<div class="ln ${lineClass(ln)}">${esc(ln)}</div>`
+    : `<div class="ln gap"></div>`).join("");
+}
+function fmtKV(lines) {
+  // 「卦盘一览」：每行「名：值」成表
+  return lines.map((ln) => {
+    const t = ln.trim(), i = t.indexOf("：");
+    if (!t) return "";
+    if (i < 0) return `<div class="ln ${lineClass(ln)}">${esc(t)}</div>`;
+    return `<div class="kv"><span class="k">${esc(t.slice(0, i))}</span>`
+         + `<span class="v">${esc(t.slice(i + 1))}</span></div>`;
+  }).join("");
+}
+
+const V_CLASS = { "吉": "pos", "凶": "neg", "忌": "neg", "危": "neg",
+                  "谨": "mid", "中": "mid", "条件": "mid" };
+function verdictOf(text) {
+  const m = text.match(/定例断辞[^\n【]*【([^】]+)】/);
+  return m ? { name: m[1], cls: V_CLASS[m[1]] || "neu" } : null;
+}
+
+const NOTICE_KIND = { refusal: ["stop", "不占"], error: ["bad", "出错"] };
+function noticeHTML(kind, text) {
+  const [cls, tag] = NOTICE_KIND[kind] || ["", ""];
+  return `<div class="notice ${cls}">${tag ? `<span class="nt">${tag}</span>` : ""}`
+       + `${esc(text)}</div>`;
+}
+
+const PROOF_RE = /凭证|存证|召回/;
+function sectionHTML(s) {
+  const t = s.title;
+  const cut = t.indexOf("（");
+  const name = cut > 0 ? t.slice(0, cut) : t;
+  const desc = cut > 0 ? t.slice(cut) : "";
+  if (name.startsWith("追问")) {
+    return `<section class="card sec fu"><h2 class="card-h"><span class="t">追问</span></h2>`
+         + `<div class="body">${fmtLines(s.lines)}</div></section>`;
+  }
+  if (name.startsWith("后事")) {
+    return `<section class="card sec after"><h2 class="card-h"><span class="t">${esc(t)}</span></h2>`
+         + `<div class="body">${fmtLines(s.lines)}</div></section>`;
+  }
+  const body = name.startsWith("卦盘一览") ? fmtKV(s.lines) : fmtLines(s.lines);
+  return `<section class="card sec"><h2 class="card-h"><span class="t">${esc(name)}`
+       + (desc ? `<span class="desc">${esc(desc)}</span>` : "") + `</span></h2>`
+       + `<div class="body">${body}</div></section>`;
+}
+function proofGroupHTML(list) {
+  const subs = list.map((s) =>
+    `<div class="subsec"><h4>${esc(s.title)}</h4><div class="body">${fmtLines(s.lines)}</div></div>`
+  ).join("");
+  return `<details class="card group"><summary>凭证与存证`
+       + `<span class="sub">${list.length} 项 · 起卦排盘选文皆可复算，占断附摘要</span></summary>${subs}</details>`;
+}
+
+function renderReport(text, kind, opts) {
+  opts = opts || {};
+  const rhead = $("rhead"), rep = $("report"), secsBox = $("sections");
+  $("empty").style.display = "none";
+  $("result").style.display = "block";
+  if (kind === "refusal" || kind === "error") {
+    rhead.innerHTML = opts.question
+      ? `<div class="rq">${esc(opts.question)}</div>` : "";
+    rep.innerHTML = noticeHTML(kind, text);
+    secsBox.innerHTML = "";
+    return;
+  }
+  const r = parseReport(text);
+  const v = verdictOf(text);
+  const mode = kind === "llm" ? ["llm", "大模型解读 · 引文已逐字校验"]
+             : r.head.notes.some((l) => l.startsWith("〔解读不可用〕"))
+               ? ["warn", "解读不可用 · 已降级为定例"] : ["plain", "定例模式 · 未用大模型"];
+  const when = opts.when ? new Date(opts.when).toLocaleString() : "";
+  rhead.innerHTML =
+    `<div class="rq">${esc(r.head.question || opts.question || "")}</div>`
+    + `<div class="rmeta">`
+    + (r.head.topic ? `<span class="tag">类别 · ${esc(r.head.topic)}</span>` : "")
+    + `<span class="tag ${mode[0]}">${mode[1]}</span>`
+    + (when ? `<span>${esc(when)}</span>` : "") + `</div>`;
+
+  let h = "";
+  if (r.head.notes.length) {
+    h += `<div class="notice">${esc(r.head.notes.join("\n"))}</div>`;
+  }
+  const con = r.head.blocks.find((b) => b.label === "结论");
+  const rest = r.head.blocks.filter((b) => b !== con);
+  h += `<section class="card hero"><div class="hero-top"><span class="eyebrow">结论</span>`;
+  if (v) {
+    h += `<span class="vbadge ${v.cls}" title="定例断辞：自经文断辞字样／庙陷明文机取，`
+       + `${kind === "llm" ? "占断之对照基准" : "本次结论所取"}"><b>${esc(v.name)}</b>`
+       + `定例断辞${kind === "llm" ? "·对照" : ""}</span>`;
+  }
+  h += `</div>`;
+  if (con) {
+    h += `<p class="conclusion">${esc(con.lines[0] || "")}</p>`;
+    if (con.lines.length > 1) h += `<p class="cnote">${esc(con.lines.slice(1).join("\n"))}</p>`;
+  }
+  rest.forEach((b) => {
+    const cut = b.label.indexOf("（");
+    h += `<div class="blk"><h4>${esc(b.label)}</h4><div class="body">${fmtLines(b.lines)}</div></div>`;
+    void cut;
+  });
+  h += `</section>`;
+  rep.innerHTML = h;
+
+  // 小节：一览与原文在前，凭证类合并折叠，追问/后事依序在后
+  let sh = "", proofs = [];
+  const flush = () => { if (proofs.length) { sh += proofGroupHTML(proofs); proofs = []; } };
+  r.secs.forEach((s) => {
+    if (PROOF_RE.test(s.title) && !s.title.startsWith("追问") && !s.title.startsWith("后事")) {
+      proofs.push(s);
+    } else { flush(); sh += sectionHTML(s); }
+  });
+  flush();
+  if (r.disclaimer) sh += `<p class="disclaimer">※ ${esc(r.disclaimer)}</p>`;
+  secsBox.innerHTML = sh;
+}
+
+function showResult(text, kind, opts) {
+  const out = $("out");
+  out.textContent = text;
+  renderReport(text, kind, opts);
+  $("outbar").style.display = "flex";
 }
 
 // ── 占问记录（仅存本机浏览器 localStorage；含追问全文） ──────────
@@ -358,22 +942,33 @@ function saveHist(h) {
 function renderHist() {
   const h = loadHist(), ul = $("histlist");
   $("history").style.display = h.length ? "block" : "none";
+  $("histcount").textContent = h.length ? `${h.length} 条 · 仅存本机` : "";
   ul.innerHTML = "";
   h.forEach((r) => {
     const li = document.createElement("li");
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "minor";
-    b.textContent = new Date(r.t).toLocaleString() + "｜" +
-                    (r.q.length > 24 ? r.q.slice(0, 24) + "…" : r.q);
-    b.addEventListener("click", () => {
-      const out = $("out");
-      out.style.display = "block";
-      out.textContent = r.text + afterText(r);
+    const b = document.createElement("div");
+    b.className = "hq"; b.tabIndex = 0; b.setAttribute("role", "button");
+    const v = verdictOf(r.text || "");
+    if (v) {
+      const vb = document.createElement("span");
+      vb.className = "vb " + v.cls; vb.textContent = v.name; b.appendChild(vb);
+    }
+    b.appendChild(document.createTextNode(
+      r.q.length > 40 ? r.q.slice(0, 40) + "…" : r.q));
+    const ht = document.createElement("span");
+    ht.className = "ht"; ht.textContent = new Date(r.t).toLocaleString();
+    b.appendChild(ht);
+    const open = () => {
+      const kind = r.kind || (r.text.includes("── 占断存证") ? "llm" : "plain");
+      showResult(r.text + afterText(r), kind, { question: r.q, when: r.t });
       $("viz").style.display = "none";        // 记录只存文本，不存图
-      $("outbar").style.display = "block";
       $("followup").style.display = "none";   // 旧会话不可续问，须重起占
       curRec = null;
-      out.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    b.addEventListener("click", open);
+    b.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); open(); }
     });
     const a = document.createElement("button");
     a.type = "button"; a.className = "minor";
@@ -384,8 +979,8 @@ function renderHist() {
     if (r.after) {
       const s = document.createElement("div");
       s.className = "afternote";
-      s.textContent = "后事：" + (r.after.text.length > 40
-                      ? r.after.text.slice(0, 40) + "…" : r.after.text);
+      s.textContent = r.after.text.length > 60
+                      ? r.after.text.slice(0, 60) + "…" : r.after.text;
       li.appendChild(s);
     }
     ul.appendChild(li);
@@ -411,10 +1006,10 @@ function editAfter(t) {
   saveHist(h);
   renderHist();
 }
-function recordRun(question, text) {
+function recordRun(question, text, kind) {
   const h = loadHist();
   curRec = Date.now();
-  h.unshift({ t: curRec, q: question, text });
+  h.unshift({ t: curRec, q: question, text, kind });
   saveHist(h.slice(0, HMAX));
   renderHist();
 }
@@ -436,21 +1031,26 @@ $("copyout").addEventListener("click", async () => {
     await navigator.clipboard.writeText(text);
     setStatus("已复制到剪贴板。");
   } catch (e) {   // 剪贴板 API 被拒（旧浏览器/权限）则退回选中复制
+    const out = $("out"), shown = out.classList.contains("show");
+    out.classList.add("show");
     const sel = window.getSelection(), range = document.createRange();
-    range.selectNodeContents($("out"));
+    range.selectNodeContents(out);
     sel.removeAllRanges(); sel.addRange(range);
     setStatus(document.execCommand("copy") ? "已复制到剪贴板。"
                                            : "复制失败，请手动选中复制。",
               false);
     sel.removeAllRanges();
+    if (!shown) out.classList.remove("show");
   }
+});
+$("rawtoggle").addEventListener("click", () => {
+  const raw = $("out").classList.toggle("show");
+  $("result").classList.toggle("rawmode", raw);
+  $("rawtoggle").textContent = raw ? "返回版式" : "查看纯文本";
 });
 
 // ── 卦象图、体用生克图、十二宫盘图与西洋本命盘图
 //    （据 viz 数据绘制；纯呈现，不出第二结论） ──
-const esc = (s) => String(s).replace(/[&<>"]/g,
-  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-
 function guaSVG(g, moving) {
   // 六爻自下而上（lines[0] 为初爻）；阳爻一横、阴爻两段；动爻着色注「动」
   const W = 96, LH = 10, GAP = 8, PAD = 4;
@@ -694,6 +1294,7 @@ function renderChart(ch) {
          `<div class="zwgrid">${cells}</div></div>`;
 }
 
+
 function renderViz(v) {
   const box = $("viz");
   if (!v || !v.casts) { box.style.display = "none"; return; }
@@ -707,7 +1308,7 @@ function renderViz(v) {
 
 function onWorkerMessage(ev) {
   const m = ev.data;
-  if (m.type === "status") { setStatus(m.text); return; }
+  if (m.type === "status") { setStatus(m.text, false, "boot"); return; }
   if (m.type === "fatal") {
     setStatus("启动失败：" + m.text +
               "（多为网络原因，刷新重试；需能访问 cdn.jsdelivr.net）", true);
@@ -718,22 +1319,26 @@ function onWorkerMessage(ev) {
   if (m.type !== "result") return;
   setBusy(false);
   const d = m.data, out = $("out");
-  out.style.display = "block";
+  const question = $("question").value.trim();
   if (pending === "followup") {
     // 追问的回复（含红线拒答、出错）一律接在下方，保留前文
-    out.textContent += "\n\n── 追问 ────────────────────\n" +
-                       "问：" + lastAsk + "\n\n" + d.text;
+    const text = out.textContent + "\n\n── 追问 ────────────────────\n" +
+                 "问：" + lastAsk + "\n\n" + d.text;
+    showResult(text, lastKind, { question, when: curRec || Date.now() });
     if (d.kind === "followup") $("ask").value = "";
-    if (d.kind !== "error") recordUpdate(out.textContent);
+    if (d.kind !== "error") recordUpdate(text);
+    const cards = document.querySelectorAll("#sections .card.fu");
+    const last = cards[cards.length - 1];
+    if (last) last.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } else {
-    out.textContent = d.text;
+    lastKind = d.kind;
+    showResult(d.text, d.kind, { question, when: Date.now() });
     $("followup").style.display = d.kind === "llm" ? "block" : "none";
     renderViz(d.viz);
-    if (d.kind !== "error") recordRun($("question").value.trim(), d.text);
+    if (d.kind !== "error") recordRun(question, d.text, d.kind);
+    $("result").scrollIntoView({ behavior: "smooth", block: "start" });
   }
-  $("outbar").style.display = "block";
-  if (d.kind === "error") setStatus("出错（详情见输出区）", true);
-  out.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (d.kind === "error") setStatus("出错（详情见结果区）", true);
 };
 
 // ── 重占冷却引导（DESIGN §7.5）：同一问题短期重占，先以蒙卦之辞
@@ -747,14 +1352,14 @@ function recastGuard(q) {
   return confirm(
     `此事已于 ${new Date(prev.t).toLocaleString()} 占过。\n` +
     "《周易·蒙》卦辞：「初筮告，再三渎，渎则不告。」——同一事短期" +
-    "重占，古义不取；可先在页末「占问记录」回看前占。\n\n仍要再占吗？");
+    "重占，古义不取；可先在「占问记录」回看前占。\n\n仍要再占吗？");
 }
 
 $("form").addEventListener("submit", (ev) => {
   ev.preventDefault();
   if (!ready || busy) return;
   if (!recastGuard($("question").value.trim())) {
-    setStatus("已依「再三渎，渎则不告」之义暂缓重占——可于页末回看前占，或改问他事。");
+    setStatus("已依「再三渎，渎则不告」之义暂缓重占——可于「占问记录」回看前占，或改问他事。");
     return;
   }
   const apiKey = $("apikey").value.trim();
